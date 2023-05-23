@@ -4,7 +4,7 @@ general:
   tests:
     - test:
         call: test_control_pole_angle
-        desc: parameters: pole_angle_reference, gains, debug_unit, render (True/False), debug
+        desc: parameters  pole_angle_reference, gains, debug_unit, render (True/False), debug
         cases:
           - case:
               desc:   Just keep pole upright

@@ -1,34 +1,5 @@
-import gymnasium as gym
+import GymEnvironment as GymEnv
 import unit_test as ut
-
-
-class BaseEnvironment(object):
-    def __init__(self, name, control=None, render_mode=None):
-        self.control = control
-        self.env     = gym.make(name, render_mode=render_mode)
-
-    def run_episode(self, debug=False):
-        if debug:
-            print('   start episode')
-        observation, info = self.env.reset()
-        steps = 0
-        ended = False
-        while not ended:
-            action = self.control.get_action(observation, info) if self.control is not None \
-                else self.env.action_space.sample()
-            observation, reward, terminated, truncated, info = self.env.step(action)
-            steps += 1
-            ended = terminated or truncated
-            if debug:
-                print('     step:%s obs:%s action:%s' % (steps, observation, action))
-                if terminated:
-                    print('    terminated at step %s' % steps)
-        return steps
-
-    def run_episodes(self, max_number_of_episodes=500):
-        for _ in range(max_number_of_episodes):
-            self.run_episode(debug=True)
-        self.env.close()
 
 
 class ControlCartPole:
@@ -73,10 +44,9 @@ class ControlUnit:
 
 def test_control_pole_angle(pole_angle_reference, gains, debug_units, render, debug):
     render_mode = 'human' if render else None
-    env = BaseEnvironment('CartPole-v1', control=ControlCartPole(gains, pole_angle_reference=pole_angle_reference,
-                                                                 debug_units=debug_units),
-                          render_mode=render_mode)
-    steps = env.run_episode(debug=debug)
+    control     = ControlCartPole(gains, pole_angle_reference=pole_angle_reference, debug_units=debug_units)
+    env         = GymEnv.BaseEnvironment('CartPole-v1', control=control, render_mode=render_mode)
+    steps       = env.run_episode(debug=debug)
     return steps
 
 
