@@ -1,4 +1,5 @@
 import gymnasium as gym
+import unit_test as ut
 
 
 class BaseEnvironment(object):
@@ -22,6 +23,7 @@ class BaseEnvironment(object):
                 print('     step:%s obs:%s action:%s' % (steps, observation, action))
                 if terminated:
                     print('    terminated at step %s' % steps)
+        return steps
 
     def run_episodes(self, max_number_of_episodes=500):
         for _ in range(max_number_of_episodes):
@@ -30,13 +32,17 @@ class BaseEnvironment(object):
 
 
 class ControlCartPole:
-    def __init__(self, control_gains):
+    def __init__(self, control_gains, debug_units=None, pole_angle_reference=0.0):
         self.k1, self.k2, self.k3, self.k4 = control_gains
-        self.pole_angle_reference = 0.1
-        self.unit1 = ControlUnit('pole angle', control_gains[0], debug=True)
-        self.unit2 = ControlUnit('pole speed', control_gains[1], debug=False)
-        self.unit3 = ControlUnit('cart pos',   control_gains[2], debug=False)
-        self.unit4 = ControlUnit('cart speed', control_gains[3], debug=True)
+        debug_flag = debug_units if len(debug_units) >= 4 else [False, False, False, False]
+        self.pole_angle_reference = pole_angle_reference
+        self.unit1 = ControlUnit('pole angle', control_gains[0], debug=debug_flag[0])
+        self.unit2 = ControlUnit('pole speed', control_gains[1], debug=debug_flag[1])
+        self.unit3 = ControlUnit('cart pos',   control_gains[2], debug=debug_flag[2])
+        self.unit4 = ControlUnit('cart speed', control_gains[3], debug=debug_flag[3])
+
+    def change_pole_angle_reference(self, new_pole_angle_reference):
+        self.pole_angle_reference = new_pole_angle_reference
 
     def get_action(self, observation, _):
         cart_position, cart_speed, pole_angle, pole_speed = observation
@@ -65,7 +71,14 @@ class ControlUnit:
         return self.o
 
 
+def test_control_pole_angle(pole_angle_reference, gains, debug_units, render, debug):
+    render_mode = 'human' if render else None
+    env = BaseEnvironment('CartPole-v1', control=ControlCartPole(gains, pole_angle_reference=pole_angle_reference,
+                                                                 debug_units=debug_units),
+                          render_mode=render_mode)
+    steps = env.run_episode(debug=debug)
+    return steps
+
+
 if __name__ == "__main__":
-    gains1 = [[3.5], [0.5], [2.0], [-0.05, 4.0]]
-    env    = BaseEnvironment('CartPole-v1', control=ControlCartPole(gains1), render_mode='human')
-    env.run_episodes(max_number_of_episodes=1)
+    ut.UnitTest(__name__, 'tests/CartPole.test', '')
