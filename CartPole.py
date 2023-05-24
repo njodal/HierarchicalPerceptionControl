@@ -2,7 +2,25 @@ import GymEnvironment as GymEnv
 import unit_test as ut
 
 
-class ControlCartPole:
+class MoveCartToPosition:
+    def __init__(self, gains, cart_pos_reference=0.0):
+        self.unit1              = ControlUnit('cart position', gains=gains[0], debug=True)
+        last_gains              = [g for i, g in enumerate(gains) if i > 0]
+        self.down_control       = ControlCartPoleAtAngle(last_gains, debug_units=[True, False, False, False])
+        self.cart_pos_reference = cart_pos_reference
+
+    def change_cart_pos_reference(self, new_car_pos_reference):
+        self.cart_pos_reference = new_car_pos_reference
+
+    def get_action(self, observation, info):
+        cart_position        = observation[0]
+        pole_angle_reference = self.unit1.get_output(self.cart_pos_reference, cart_position)
+        self.down_control.change_pole_angle_reference(pole_angle_reference)
+        action = self.down_control.get_action(observation, info)
+        return action
+
+
+class ControlCartPoleAtAngle:
     def __init__(self, control_gains, debug_units=None, pole_angle_reference=0.0):
         self.k1, self.k2, self.k3, self.k4 = control_gains
         debug_flag = debug_units if len(debug_units) >= 4 else [False, False, False, False]
@@ -44,7 +62,16 @@ class ControlUnit:
 
 def test_control_pole_angle(pole_angle_reference, gains, debug_units, render, debug):
     render_mode = 'human' if render else None
-    control     = ControlCartPole(gains, pole_angle_reference=pole_angle_reference, debug_units=debug_units)
+    control     = ControlCartPoleAtAngle(gains, pole_angle_reference=pole_angle_reference, debug_units=debug_units)
+    env         = GymEnv.BaseEnvironment('CartPole-v1', control=control, render_mode=render_mode)
+    steps       = env.run_episode(debug=debug)
+    return steps
+
+
+def test_move_cart(car_pos_reference, gains, debug_units, render, debug):
+    render_mode = 'human' if render else None
+    # control     = ControlCartPoleAtAngle(gains, pole_angle_reference=pole_angle_reference, debug_units=debug_units)
+    control     = MoveCartToPosition(gains, cart_pos_reference=car_pos_reference)
     env         = GymEnv.BaseEnvironment('CartPole-v1', control=control, render_mode=render_mode)
     steps       = env.run_episode(debug=debug)
     return steps

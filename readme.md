@@ -12,6 +12,6 @@ Basic idea: main perception is Pole Angle must be upright, but it is not possibl
 * to change Cart Position change Cart Speed
 * to change Cart Speed apply Action
 
-To experiment with different gains and pole angle reference, create new examples in CarPole.test.
+To experiment with different gains and pole angle references, create new examples in CarPole.test.
 
 Run CartPole.py to test it.
