@@ -1,10 +1,11 @@
 import GymEnvironment as GymEnv
+from ControlUnit import PCUControlUnit
 import unit_test as ut
 
 
 class MoveCartToPosition:
     def __init__(self, gains, cart_pos_reference=0.0):
-        self.unit1              = ControlUnit('cart position', gains=gains[0], debug=True)
+        self.unit1              = PCUControlUnit('cart position', gains=gains[0], debug=True)
         last_gains              = [g for i, g in enumerate(gains) if i > 0]
         self.down_control       = ControlCartPoleAtAngle(last_gains, debug_units=[True, False, False, False])
         self.cart_pos_reference = cart_pos_reference
@@ -25,10 +26,10 @@ class ControlCartPoleAtAngle:
         self.k1, self.k2, self.k3, self.k4 = control_gains
         debug_flag = debug_units if len(debug_units) >= 4 else [False, False, False, False]
         self.pole_angle_reference = pole_angle_reference
-        self.unit1 = ControlUnit('pole angle', control_gains[0], debug=debug_flag[0])
-        self.unit2 = ControlUnit('pole speed', control_gains[1], debug=debug_flag[1])
-        self.unit3 = ControlUnit('cart pos',   control_gains[2], debug=debug_flag[2])
-        self.unit4 = ControlUnit('cart speed', control_gains[3], debug=debug_flag[3])
+        self.unit1 = PCUControlUnit('pole angle', control_gains[0], debug=debug_flag[0])
+        self.unit2 = PCUControlUnit('pole speed', control_gains[1], debug=debug_flag[1])
+        self.unit3 = PCUControlUnit('cart pos',   control_gains[2], debug=debug_flag[2])
+        self.unit4 = PCUControlUnit('cart speed', control_gains[3], debug=debug_flag[3])
 
     def change_pole_angle_reference(self, new_pole_angle_reference):
         self.pole_angle_reference = new_pole_angle_reference
@@ -41,23 +42,6 @@ class ControlCartPoleAtAngle:
         action1        = self.unit4.get_output(cart_speed_ref, cart_speed)
         action = 1 if action1 > 0.0 else 0
         return action
-
-
-class ControlUnit:
-    def __init__(self, name, gains, debug=False):
-        self.name  = name
-        self.k     = gains[0]
-        self.ks    = gains[1] if len(gains) > 1 else 1.0
-        self.debug = debug
-        self.o     = 0.0
-        self.e     = 0.0
-
-    def get_output(self, reference, perception):
-        self.e = reference - perception
-        self.o = self.o + (self.k*self.e - self.o)/self.ks
-        if self.debug:
-            print('        %s r:%.2f p:%.2f e:%.2f o:%.4f' % (self.name, reference, perception, self.e, self.o))
-        return self.o
 
 
 def test_control_pole_angle(pole_angle_reference, gains, debug_units, render, debug):
