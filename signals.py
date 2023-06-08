@@ -55,6 +55,22 @@ class SignalHistory(object):
     def is_full(self):
         return len(self.values) >= self.length
 
+    def get_items_in_lifo_order(self):
+        """
+        Returns item in Last In - First Out order
+        :return:
+        """
+        for i in range(len(self.values)-1, -1, -1):
+            yield self.values[i]
+
+    def get_items_in_fifo_order(self):
+        """
+        Returns item in First In - First Out order
+        :return:
+        """
+        for v in self.values:
+            yield v
+
     # aggregates
     def get_aggregate(self, aggregate_type):
         """
@@ -96,6 +112,14 @@ class SignalHistory(object):
     def sum(self):
         # To Do: optimize to have the sum pre-calculated in every update
         return sum(self.values)
+
+    def weighted_sum(self, weights, lifo_order=True):
+        function = self.get_items_in_lifo_order if lifo_order else self.get_items_in_fifo_order
+        total = 0.0
+        for i, value in enumerate(function()):
+            total += weights[i]*value
+        return total
+
     # end aggregates
 
     def local_optimum_points(self):
@@ -154,6 +178,22 @@ def test_delayed_signal(lag, sequence):
         delayed.append(v)
     value = delayed.get_value()
     return value if value is not None else 'None'
+
+
+def test_weighted_sum(length, values, weights, lifo_order):
+    signal = SignalHistory(length-1)
+    for v in values:
+        signal.append(v)
+
+    total = signal.weighted_sum(weights, lifo_order=lifo_order)
+    return total
+
+
+def test_get_in_lifo_order(values):
+    signal = SignalHistory(len(values))
+    for v in values:
+        signal.append(v)
+    return [v1 for v1 in signal.get_items_in_lifo_order()]
 
 
 if __name__ == "__main__":

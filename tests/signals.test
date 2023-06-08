@@ -17,3 +17,32 @@ general:
           - case:
               input:  [0, [1, 2, 3, 4, 5, 6, 7, 8]]
               output: 8
+
+
+    - test:
+        call: test_weighted_sum
+        cases:
+          - case:
+              input:  [3, [1, 2, 3], [0, 1, 0], True]
+              output: 2
+          - case:
+              desc:   weight sum in reverse order
+              input:  [3, [1, 2, 3], [1, 2, 3], True]
+              output: 10
+          - case:
+              desc:   weight sum in reverse order
+              input:  [3, [1, 2, 3], [1, 2, 3], False]
+              output: 14
+          - case:
+              input:  [3, [1, 2, 3, 4], [1, 1, 1], True]
+              output: 9
+
+    - test:
+        call: test_get_in_lifo_order
+        cases:
+          - case:
+              input:  [[1, 2, 3]]
+              output: [3, 2, 1]
+          - case:
+              input:  [[]]
+              output: []
