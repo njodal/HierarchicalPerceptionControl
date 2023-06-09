@@ -7,7 +7,7 @@ class Ecoli:
     General idea:
         * given a set of parameters to optimize, randomly change any of it a little
         * the rate of change depends on how close is the output to the goal
-            if function is getting closer not change to much, if it getting farther increase the rate of change
+            if function is getting closer not change to0 much, if it's getting farther increase the rate of change
     """
 
     def __init__(self, function, rate_of_change=10, max_change_percentage=0.1):
