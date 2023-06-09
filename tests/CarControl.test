@@ -1,0 +1,27 @@
+general:
+  name: Tests for CarControl.py
+
+  tests:
+    - test:
+        call: test_positional_control
+        cases:
+          - case:
+              desc:   pcu, tuned by hand
+              input:  [10, 4, 0.1, 100, {'type':PCU, 'name':position, gains:[0.5]}, {'type':PCU, 'name':speed, gains:[2.0]}, True]
+              output: 9.98
+          - case:
+              desc:   positional control adaptive
+              input:  [10, 4, 0.1, 100, {'type':AdaptiveP, 'name':position}, {'type':PCU, 'name':speed, gains:[2.0]}, True]
+              output: 9.98
+
+    - test:
+        call: test_speed_control
+        cases:
+          - case:
+              desc:   pcu, tuned by hand
+              input:  [10, 4, 0.1, 100, {'type':PCU, 'name':speed, gains:[2.0]}, False]
+              output: 10.0
+          - case:
+              desc:   adaptive
+              input:  [3.0, 3, 0.1, 10, {'type':AdaptiveP, 'name':speed, 'learning_rate': 0.01, 'past_length':100, 'gain':0.1, 'debug': True}, True]
+              output: 3.0
