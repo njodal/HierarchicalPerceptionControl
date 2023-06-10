@@ -1,0 +1,10 @@
+general:
+  name: Tests for ControlUnit.py
+
+  tests:
+    - test:
+        call: test_deconvolution
+        cases:
+          - case:
+              input:  [lineal2, 50, 0.001, 0.01, 0.01, 2, True]
+              output: 0.0

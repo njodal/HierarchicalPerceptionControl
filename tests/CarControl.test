@@ -23,5 +23,5 @@ general:
               output: 10.0
           - case:
               desc:   adaptive
-              input:  [3.0, 3, 0.1, 10, {'type':AdaptiveP, 'name':speed, 'learning_rate': 0.01, 'past_length':100, 'gain':0.1, 'debug': True}, True]
+              input:  [3.0, 3, 0.1, 1000, {'type':AdaptiveP, 'name':speed, 'learning_rate': 0.01, 'decay_rate': 0.0, 'past_length':10, 'gain':0.1, 'debug': True}, True]
               output: 3.0
