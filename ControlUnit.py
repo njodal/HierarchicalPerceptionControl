@@ -9,6 +9,8 @@ class PCUControlUnit:
     """
 
     type = 'PCU'
+    key_g = 'g'
+    key_s = 's'
 
     def __init__(self, name, gains, debug=False):
         self.name  = name
@@ -24,6 +26,13 @@ class PCUControlUnit:
         if self.debug:
             print('        %s r:%.2f p:%.2f e:%.2f o:%.4f' % (self.name, reference, perception, self.e, self.o))
         return self.o
+
+    def get_parameters(self):
+        return {self.key_g: self.kg, self.key_s: self.ks}
+
+    def set_parameters(self, parameters):
+        self.kg = parameters.get(self.key_g, self.kg)
+        self.ks = parameters.get(self.key_s, self.ks)
 
 
 class AdaptiveControlUnit:
