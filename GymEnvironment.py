@@ -2,14 +2,21 @@ import gymnasium as gym
 
 
 class BaseEnvironment(object):
-    def __init__(self, name, control=None, render_mode=None):
+    def __init__(self, name, control=None, max_episode_steps=500, render_mode=None):
         self.control = control
-        self.env     = gym.make(name, render_mode=render_mode)
+        self.env     = gym.make(name, max_episode_steps=max_episode_steps, render_mode=render_mode)
 
-    def run_episode(self, debug=False):
+    def get_max_episode_steps(self):
+        return self.env.spec.max_episode_steps
+
+    def run_episode(self, initial_values=(), debug=False):
         if debug:
             print('   start episode')
+
         observation, info = self.env.reset()
+        for [i, v] in initial_values:
+            observation[i] = v
+
         steps = 0
         ended = False
         while not ended:
