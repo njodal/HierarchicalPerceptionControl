@@ -12,11 +12,11 @@ general:
               output: 500
           - case:
               desc:   Just keep pole in a given angle
-              input:  [0.1, [[4.0], [4.0], [2.0], [-0.05, 4.0]], [True, True, True, True], False, False]
+              input:  [0.1, [[4.0], [4.0], [2.0], [-0.05, 4.0]], [], False, False]
               output: 500
           - case:
               desc:   Just keep pole in a given angle, gains from test_move_cart
-              input:  [0.1, [[3.5], [5.0], [0.2], [-0.05, 4.0]], [True, True, True, True], True, True]
+              input:  [0.1, [[3.5], [5.0], [0.2], [-0.05, 4.0]], [], False, False]
               output: 500
 
 
@@ -25,5 +25,29 @@ general:
         desc: parameters cart_pos_reference, gains, debug_unit, render (True/False), debug
         cases:
           - case:
-              input:  [1.0, [[0.3, 300.0], [3.0], [5.0], [0.2], [-0.05, 4.0]], [True, True, True, True], True, True]
-              output: 500
+              input:  [1.0, 1000, [[0.3, 300.0], [3.0], [5.0], [0.2], [-0.05, 4.0]], [True, True, True, True], False, False]
+              output: 1000
+          - case:
+              input:  [1.0, 1000, [[0.5, 267.0], [3.0], [5.0], [0.2], [-0.05, 4.0]], [True, True, True, True], False, False]
+              output: 1000
+          - case:
+              input:  [1.0, 1000, [[1.2, 200.0], [3.5], [0.5], [2.0], [-0.05, 4.0]], [True, True, True, True], False, False]
+              output: 1000
+
+    - test:
+        call: test_autotune_pole_angle_first_gain
+        precision: 0.5
+        cases:
+          - case:
+              input:  [0.0, 3.0, [[0.5], [2.0], [-0.05, 4.0]], False, False]
+              output: 3.0
+
+    - test:
+        call: test_autotune_move_cart_first_gain
+        cases:
+          - case:
+              input:  [1.0, 1000, 10.0, 500.0, [[3.0], [5.0], [0.2], [-0.05, 4.0]], False, False]
+              output: [0.3, 500]
+          - case:
+              input:  [1.0, 1000, 1.0, 10.0, [[3.5], [0.5], [2.0], [-0.05, 4.0]], False, False]
+              output: [0.3, 500]
