@@ -1,0 +1,50 @@
+window:
+  size: [100, 50, 1000, 400]  # [start_x, start_y, width, height]
+  title: Example of an real time graph
+  status_bar: True
+
+  toolbar:
+    - item:
+        name:    start_stop_action
+        title:   Stop Animation
+        type:    Action
+        action:  start_stop_animation
+        tooltip: Click to start or stop the graph bellow
+
+  layout:
+    - item:
+        name:    controls_and_figure
+        type:    grid
+        subtype: horizontal
+        layout:
+          - item:
+              name:    controls
+              type:    grid
+              subtype: vertical
+              controls:
+                  - control:
+                      name:    olag
+                      title:   Output Lag
+                      type:    Slider
+                      parms:   [0, 10, 1]      # [min_value, max_value, scale]
+                      value:   4
+                      tooltip: time it takes the system to response to a given acceleration (measured in cycles)
+                  - control:
+                      name:    ref_speed
+                      title:   Reference Speed
+                      type:    Slider
+                      parms:   [0, 10, 1]      # [min_value, max_value, scale]
+                      value:   5
+                  - control:
+                      name:    kg
+                      title:   Proportional Gain
+                      type:    Slider
+                      parms:   [1, 10, 1]      # [min_value, max_value, scale]
+                      value:   2
+
+          - item:
+              name:    graph
+              type:    figure
+              subtype: animation
+              view_size: [10, 10]
+

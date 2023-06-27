@@ -34,6 +34,12 @@ class PCUControlUnit:
         self.kg = parameters.get(self.key_g, self.kg)
         self.ks = parameters.get(self.key_s, self.ks)
 
+    def set_kg(self, new_kg):
+        self.kg = new_kg
+
+    def set_ks(self, new_ks):
+        self.ks = new_ks
+
 
 class AdaptiveControlUnit:
     """

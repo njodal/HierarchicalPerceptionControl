@@ -59,6 +59,10 @@ class CarModel:
     def get_state(self):
         return self.current_pos, self.current_v
 
+    def set_output_lag(self, new_output_lag):
+        self.olag = new_output_lag
+        self.acc_values.set_delay(self.olag)
+
     def __str__(self):
         return 'pos:%.2f v:%.2f acc:%.2f' % (self.current_pos, self.current_v, self.current_acc)
 

@@ -14,11 +14,18 @@ class CarSpeedControl:
         self.speed_reference = speed_reference
         self.sqr_errors = 0.0
 
+    def set_reference(self, new_speed_reference):
+        self.speed_reference = new_speed_reference
+
     def get_action(self, observation):
         _, current_speed = observation
         self.sqr_errors += abs(self.speed_reference - current_speed)
         acc_reference = self.control_speed.get_output(self.speed_reference, current_speed)
+        # print('err:%s observation:%s acc:%s' % (self.sqr_errors, observation, acc_reference))
         return acc_reference
+
+    def set_kg(self, new_value):
+        self.control_speed.set_kg(new_value)
 
 
 class CarPositionalControl:
