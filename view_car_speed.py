@@ -20,6 +20,7 @@ class CarSpeedControlHost(WinForm.HostModel):
         self.ref_speed_key         = 'ref_speed'
         self.olag_key              = 'olag'
         self.kg_key                = 'kg'
+        self.ks_key                = 'ks'
         self.start_stop_key        = 'start_stop'
         self.start_stop_action_key = 'start_stop_action'
 
@@ -59,6 +60,8 @@ class CarSpeedControlHost(WinForm.HostModel):
             self.speed_control.set_output_lag(int(value))
         elif name == self.kg_key:
             self.speed_control.set_kg(value)
+        elif name == self.ks_key:
+            self.speed_control.set_ks(value)
 
     def set_references(self):
         ref_speed = self.state.get(self.ref_speed_key, 0.0)
@@ -93,6 +96,9 @@ class RealTimeControlSpeedDataProvider(ga.RealTimeDataProvider):
 
     def set_kg(self, new_kg):
         self.control.set_kg(new_kg)
+
+    def set_ks(self, new_kg):
+        self.control.set_ks(new_kg)
 
     def set_reference(self, new_reference):
         self.reference = new_reference

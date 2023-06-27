@@ -38,9 +38,15 @@ window:
                   - control:
                       name:    kg
                       title:   Proportional Gain
-                      type:    Slider
-                      parms:   [1, 10, 1]      # [min_value, max_value, scale]
+                      type:    EditNumberSpin
+                      parms:   {step: 0.1}
                       value:   2
+                  - control:
+                      name:    ks
+                      title:   Integrative Gain
+                      type:    EditNumberSpin
+                      parms:   {step: 0.1}
+                      value:   1
 
           - item:
               name:    graph

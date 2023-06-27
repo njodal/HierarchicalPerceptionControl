@@ -27,6 +27,9 @@ class CarSpeedControl:
     def set_kg(self, new_value):
         self.control_speed.set_kg(new_value)
 
+    def set_ks(self, new_value):
+        self.control_speed.set_ks(new_value)
+
 
 class CarPositionalControl:
     """
