@@ -12,17 +12,24 @@ class PCUControlUnit:
     key_g = 'g'
     key_s = 's'
 
-    def __init__(self, name, gains, debug=False):
-        self.name  = name
-        self.kg    = gains[0]
-        self.ks    = gains[1] if len(gains) > 1 else 1.0
-        self.debug = debug
-        self.o     = 0.0
-        self.e     = 0.0
+    def __init__(self, name, gains, output_bounds=(), debug=False):
+        self.name   = name
+        self.kg     = gains[0]
+        self.ks     = gains[1] if len(gains) > 1 else 1.0
+        self.bounds = output_bounds
+        self.debug  = debug
+
+        self.o = 0.0
+        self.e = 0.0
 
     def get_output(self, reference, perception):
         self.e = reference - perception
         self.o = self.o + (self.kg * self.e - self.o) / self.ks
+        if len(self.bounds) > 0:
+            if self.o < self.bounds[0]:
+                self.o = self.bounds[0]
+            elif self.o > self.bounds[1]:
+                self.o = self.bounds[1]
         if self.debug:
             print('        %s r:%.2f p:%.2f e:%.2f o:%.4f' % (self.name, reference, perception, self.e, self.o))
         return self.o

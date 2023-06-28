@@ -1,3 +1,5 @@
+import math
+
 import GymEnvironment as GymEnv
 from ControlUnit import PCUControlUnit, signum
 import auto_tune as at
@@ -55,11 +57,16 @@ class BaseGymControl(object):
 
 
 class MoveCartToPosition(BaseGymControl):
-    def __init__(self, gains, cart_pos_reference=0.0, overshoot_gain=5.0):
-        self.unit1              = PCUControlUnit('cart position', gains=gains[0], debug=False)
-        last_gains              = [g for i, g in enumerate(gains) if i > 0]
-        self.down_control       = GymControlCartPoleAtAngle(last_gains, debug_units=[False, False, False, False])
+    def __init__(self, gains, cart_pos_reference=0.0, max_pole_angle_allowed=5, overshoot_gain=5.0):
+        max_pole_angle    = math.radians(max_pole_angle_allowed)
+        self.unit1        = PCUControlUnit('cart position', gains=gains[0],
+                                           output_bounds=(-max_pole_angle, max_pole_angle), debug=False)
+        last_gains        = [g for i, g in enumerate(gains) if i > 0]
+        self.down_control = GymControlCartPoleAtAngle(last_gains, debug_units=[False, False, False, False])
         super(MoveCartToPosition, self).__init__(cart_pos_reference, overshoot_gain=overshoot_gain)
+
+    def get_last_error(self):
+        return self.unit1.e
 
     def get_action(self, observation, info):
         cart_position        = observation[0]
@@ -83,6 +90,9 @@ class GymControlCartPoleAtAngle(BaseGymControl):
 
         overshoot_gain = 1.0  # not problem to have overshot in this case
         super(GymControlCartPoleAtAngle, self).__init__(pole_angle_reference, overshoot_gain=overshoot_gain)
+
+    def get_last_error(self):
+        return self.unit1.e
 
     def get_action(self, observation, _):
         cart_position, cart_speed, pole_angle, pole_speed = observation
@@ -212,6 +222,17 @@ class AutoTuneCartPositionControl:
         return abs(error) <= precision
 
 
+def run_one_move_cart(car_pos_reference, render, gains, max_iter, max_angle=5, debug=False):
+    render_mode = 'human' if render else None
+    control     = MoveCartToPosition(gains, cart_pos_reference=car_pos_reference, max_pole_angle_allowed=max_angle)
+    env         = GymEnv.BaseEnvironment('CartPole-v1', control=control, max_episode_steps=max_iter,
+                                         render_mode=render_mode)
+    steps       = env.run_episode(debug=debug)
+    result_msg  = 'Succeed' if steps >= max_iter else 'Failed at %s' % steps
+    summary     = '%s (%s)' % (result_msg, control.summary_string())
+    return steps, env.error_history, summary
+
+
 # tests
 def test_autotune_pole_angle_first_gain(pole_angle_reference, kg, gains, render, debug):
     to_tune = AutoTunePoleAngleControl(kg, gains, pole_angle_reference=pole_angle_reference, render=render, debug=debug)
@@ -236,13 +257,9 @@ def test_control_pole_angle(pole_angle_reference, gains, debug_units, render, de
 
 
 def test_move_cart(car_pos_reference, max_iter, gains, debug_units, render, debug):
-    render_mode = 'human' if render else None
-    control     = MoveCartToPosition(gains, cart_pos_reference=car_pos_reference)
-    env         = GymEnv.BaseEnvironment('CartPole-v1', control=control, max_episode_steps=max_iter,
-                                         render_mode=render_mode)
-    steps       = env.run_episode(debug=debug)
-    if debug or 1 == 1:
-        print('%s' % control.summary_string())
+    steps, _, summary_string = run_one_move_cart(car_pos_reference, render, gains, max_iter, debug=debug)
+    if debug:
+        print('%s' % summary_string)
     return steps
 
 
