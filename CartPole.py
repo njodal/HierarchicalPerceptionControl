@@ -98,10 +98,12 @@ class GymControlCartPoleAtAngle(BaseGymControl):
         cart_position, cart_speed, pole_angle, pole_speed = observation
         pole_speed_ref = self.unit1.get_output(self.reference, pole_angle)
         cart_pos_ref   = self.unit2.get_output(pole_speed_ref, pole_speed)
-        cart_speed_ref = self.unit3.get_output(cart_pos_ref, cart_position)
+        cart_speed_ref = self.unit3.get_output(cart_pos_ref, 0.0)  # position is relative not absolute
         action1        = self.unit4.get_output(cart_speed_ref, cart_speed)
         action = 1 if action1 > 0.0 else 0
-
+        # print('  angle:%.3f speed:%.3f cart pos ref:%.3f speed ref:%.3f' % (math.degrees(pole_angle),
+        #                                                                    math.degrees(pole_speed_ref), cart_pos_ref,
+        #                                                                    cart_speed_ref))
         self.add_to_cost(self.unit1.e*self.unit1.e)
         return action
 
@@ -131,7 +133,7 @@ class AutoTunePoleAngleControl:
         self.set_parameters(best_parameters)
         if self.render:
             env   = GymEnv.BaseEnvironment('CartPole-v1', control=self.control, render_mode='human')
-            steps = env.run_episode(debug=self.debug)
+            env.run_episode(debug=self.debug)
             if self.debug:
                 print('    %s' % self.control.summary_string())
 
@@ -146,9 +148,9 @@ class AutoTunePoleAngleControl:
     def function(self, parameters):
         self.total_i += 1
         self.set_parameters(parameters)
-        env   = GymEnv.BaseEnvironment('CartPole-v1', control=self.control, render_mode=None)
-        steps = env.run_episode(initial_values=[[0, 0.0], [1, 0.0], [2, 0.0], [3, 0.0]], debug=False)
-        cost  = (env.get_max_episode_steps() - steps) + self.control.total_error
+        env      = GymEnv.BaseEnvironment('CartPole-v1', control=self.control, render_mode=None)
+        steps, _ = env.run_episode(initial_values=[[0, 0.0], [1, 0.0], [2, 0.0], [3, 0.0]], debug=False)
+        cost     = (env.get_max_episode_steps() - steps) + self.control.total_error
         if self.debug:
             print('   iter: %s total error: %.3f steps: %s cost:%.3f' % (self.total_i, self.control.total_error, steps,
                                                                          cost))
@@ -201,15 +203,15 @@ class AutoTuneCartPositionControl:
         self.set_parameters(best_parameters)
         env   = GymEnv.BaseEnvironment('CartPole-v1', control=self.control, max_episode_steps=self.max_iter,
                                        render_mode=self.render_m)
-        steps = env.run_episode(initial_values=[[0, 0.0], [1, 0.0], [2, 0.0]], debug=self.debug)
+        steps, _ = env.run_episode(initial_values=[[0, 0.0], [1, 0.0], [2, 0.0]], debug=self.debug)
         print('    %s steps:%s' % (self.control.summary_string(), steps))
 
     def function(self, parameters):
         self.total_i += 1
         self.set_parameters(parameters)
-        env   = GymEnv.BaseEnvironment('CartPole-v1', control=self.control, render_mode=None)
-        steps = env.run_episode(initial_values=[[0, 0.0], [1, 0.0], [2, 0.0], [3, 0.0]], debug=False)
-        cost  = self.bad_g*(env.get_max_episode_steps() - steps) + self.control.total_error
+        env      = GymEnv.BaseEnvironment('CartPole-v1', control=self.control, render_mode=None)
+        steps, _ = env.run_episode(initial_values=[[0, 0.0], [1, 0.0], [2, 0.0], [3, 0.0]], debug=False)
+        cost     = self.bad_g*(env.get_max_episode_steps() - steps) + self.control.total_error
         if self.debug:
             print('   iter: %s total error: %.3f steps: %s cost:%.3f' % (self.total_i, self.control.total_error, steps,
                                                                          cost))
@@ -227,10 +229,35 @@ def run_one_move_cart(car_pos_reference, render, gains, max_iter, max_angle=5, d
     control     = MoveCartToPosition(gains, cart_pos_reference=car_pos_reference, max_pole_angle_allowed=max_angle)
     env         = GymEnv.BaseEnvironment('CartPole-v1', control=control, max_episode_steps=max_iter,
                                          render_mode=render_mode)
-    steps       = env.run_episode(debug=debug)
-    result_msg  = 'Succeed' if steps >= max_iter else 'Failed at %s' % steps
+    steps, obs  = env.run_episode(debug=debug)
+    result_msg  = get_result_msg(steps, max_iter, obs)
     summary     = '%s (%s)' % (result_msg, control.summary_string())
     return steps, env.error_history, summary
+
+
+def run_one_pole_control(pole_angle_reference, gains, render, debug_units, max_iter=500, debug=False):
+    render_mode = 'human' if render else None
+    control     = GymControlCartPoleAtAngle(gains, pole_angle_reference=pole_angle_reference, debug_units=debug_units)
+    env         = GymEnv.BaseEnvironment('CartPole-v1', control=control, max_episode_steps=max_iter,
+                                         render_mode=render_mode)
+    steps, obs  = env.run_episode(debug=debug)
+    result_msg  = get_result_msg(steps, max_iter, obs)
+    summary     = '%s (%s)' % (result_msg, control.summary_string())
+    return steps, env.error_history, control.total_error, summary
+
+
+def get_result_msg(steps, max_iter, observation):
+    return 'Succeed' if steps >= max_iter else 'Failed at %s because %s' % (steps, limit_msg(observation))
+
+
+def limit_msg(observation, max_d=2.4, max_a=12):
+    if abs(observation[0]) > max_d:
+        msg = 'max distance reached (%s)' % max_d
+    elif math.degrees(abs(observation[2])) > max_a:
+        msg = 'pole angle (%.2f) more than the allowed limit (%.2f)' % (math.degrees(abs(observation[2])), max_a)
+    else:
+        msg = ''
+    return msg
 
 
 # tests
@@ -248,11 +275,8 @@ def test_autotune_move_cart_first_gain(cart_pos_reference, max_iter, kg, ks, gai
 
 
 def test_control_pole_angle(pole_angle_reference, gains, debug_units, render, debug):
-    render_mode = 'human' if render else None
-    control     = GymControlCartPoleAtAngle(gains, pole_angle_reference=pole_angle_reference, debug_units=debug_units)
-    env         = GymEnv.BaseEnvironment('CartPole-v1', control=control, render_mode=render_mode)
-    steps       = env.run_episode(debug=debug)
-    print('total error: %.3f' % control.total_error)
+    steps, _, total_error, summary = run_one_pole_control(pole_angle_reference, gains, render, debug_units, debug=debug)
+    print('total error: %.3f' % total_error)
     return steps
 
 

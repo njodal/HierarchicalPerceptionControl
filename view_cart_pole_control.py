@@ -2,6 +2,7 @@
 
 import sys
 import time
+import math
 
 import WinDeklar.WindowForm as WinForm
 import WinDeklar.graph_aux as ga
@@ -19,6 +20,7 @@ class CarPoleMoveHost(WinForm.HostModel):
 
     def __init__(self, default_directory='/tmp', file_extension='yaml'):
         # keys (names used in the yaml definition file)
+        self.angle_ref_key   = 'angle_ref'
         self.pos_ref_key   = 'pos_reference'
         self.kg_key        = 'kg'
         self.ks_key        = 'ks'
@@ -52,20 +54,21 @@ class CarPoleMoveHost(WinForm.HostModel):
         :param ax:
         :return:
         """
-        pos_ref  = self.state.get(self.pos_ref_key, 1.0)
+        angle_ref  = math.radians(self.state.get(self.angle_ref_key, 0.0))
         first_g  = [self.state.get(self.kg_key, 1.0), self.state.get(self.ks_key, 100)]
         gains    = [[3.0], [6.0], [0.2], [-0.1, 4.0]]
-        gains.insert(0, first_g)
+        # gains.insert(0, first_g)
         max_iter  = self.state.get(self.max_iter_key, 1000)
         max_angle = self.state.get(self.max_angle_key, 5)
         debug     = True
-        steps, error_history, summary = CarPole.run_one_move_cart(pos_ref, None, gains, max_iter,
-                                                                  max_angle=max_angle, debug=debug)
+        steps, error_history, _, summary = CarPole.run_one_pole_control(angle_ref, gains, None, [], max_iter=max_iter,
+                                                                        debug=debug)
+        errors_degrees = [[x, math.degrees(y)] for [x, y] in error_history]
         ref_signal = [[0.0, 0.0], [max_iter, 0.0]]
         ga.graph_points(ax, ref_signal, scale_type='tight', x_visible=True, y_visible=True, color='Black')
-        ga.graph_points(ax, error_history, scale_type='tight', x_visible=True, y_visible=True)
-        error_history.extend(ref_signal)
-        self.resize_figure(ax, error_history)
+        ga.graph_points(ax, errors_degrees, scale_type='tight', x_visible=True, y_visible=True)
+        errors_degrees.extend(ref_signal)
+        self.resize_figure(ax, errors_degrees)
 
         self.show_status_bar_msg(summary)
 

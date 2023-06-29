@@ -1,3 +1,5 @@
+import math
+
 import gymnasium as gym
 
 
@@ -30,12 +32,14 @@ class BaseEnvironment(object):
             steps += 1
             ended = terminated or truncated
             if debug:
-                print('     step:%s obs:%s action:%s' % (steps, observation, action))
+                # print('     step:%s obs:%s action:%s' % (steps, observation, action))
+                print('     step:%s pos:%.3f angle:%.2f action:%s' % (steps, observation[0],
+                                                                      math.degrees(observation[2]), action))
                 if terminated:
                     print('    terminated at step %s' % steps)
-        return steps
+        return steps, observation
 
-    def run_episodes(self, max_number_of_episodes=500):
+    def run_episodes(self, max_number_of_episodes=500, debug=False):
         for _ in range(max_number_of_episodes):
-            self.run_episode(debug=True)
+            self.run_episode(debug=debug)
         self.env.close()
