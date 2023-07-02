@@ -43,7 +43,7 @@ class CarPoleMoveHost(WinForm.HostModel):
         initial_values = {}  # used in case some control have an initial value programmatically
         super(CarPoleMoveHost, self).__init__(initial_values=initial_values)
 
-    def update_view(self, ax):
+    def update_view(self, _, ax):
         """
         Update the figure
         Notes:
@@ -172,5 +172,5 @@ def progress_bar_example(progress_bar, max_value=100, inc=20, sleep_time=0.2):
 if __name__ == '__main__':
     app = QTAux.def_app()
     provider = CarPoleMoveHost()        # class to handle events
-    WinForm.set_winform(__file__, provider)
+    WinForm.run_winform(__file__, provider)
     sys.exit(app.exec_())

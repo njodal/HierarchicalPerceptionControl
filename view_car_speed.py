@@ -87,7 +87,10 @@ class CarSpeedControlHost(WinForm.HostModel):
 class RealTimeControlSpeedDataProvider(ga.RealTimeDataProvider):
     def __init__(self, dt=0.1, gains=(2.0, 1.0), reference=0.0, output_lag=0, min_y=-1.0, max_y=15.0, color='Black'):
         self.reference = reference
-        self.control   = CarCon.CarSpeedControl(self.reference, {'type': 'PCU', 'name': 'speed', 'gains': gains})
+        def_control    = {'type': 'PCU', 'name': 'speed', 'gains': gains}
+        def_control    = {'type': 'AdaptiveP', 'name': 'speed', 'learning_rate': 0.001, 'decay_rate': 0.0,
+                          'past_length': 10, 'gain': 0.1, 'debug': True}
+        self.control   = CarCon.CarSpeedControl(self.reference, def_control)
         self.model     = CarMod.CarModel(output_lag=output_lag)
         super(RealTimeControlSpeedDataProvider, self).__init__(dt=dt, min_y=min_y, max_y=max_y, color=color)
 
@@ -95,10 +98,12 @@ class RealTimeControlSpeedDataProvider(ga.RealTimeDataProvider):
         self.model.set_output_lag(new_output_lag)
 
     def set_kg(self, new_kg):
-        self.control.set_kg(new_kg)
+        # self.control.set_kg(new_kg)
+        pass
 
     def set_ks(self, new_kg):
-        self.control.set_ks(new_kg)
+        # self.control.set_ks(new_kg)
+        pass
 
     def set_reference(self, new_reference):
         self.reference = new_reference
@@ -117,5 +122,5 @@ class RealTimeControlSpeedDataProvider(ga.RealTimeDataProvider):
 if __name__ == '__main__':
     app = QTAux.def_app()
     provider = CarSpeedControlHost()        # class to handle events
-    WinForm.set_winform(__file__, provider)
+    WinForm.run_winform(__file__, provider)
     sys.exit(app.exec_())

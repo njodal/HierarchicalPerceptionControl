@@ -52,5 +52,8 @@ window:
               name:    graph
               type:    figure
               subtype: animation
+              title:   Speed control
+              x_axis: { name: 'time (s)' }
+              y_axis: { name: 'speed (m/s)' }
               view_size: [10, 10]
 

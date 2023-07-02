@@ -1,6 +1,6 @@
 window:
   size: [100, 50, 1000, 500]  # [start_x, start_y, width, height]
-  title: Example of a win form
+  title: Keep the pole upright
   status_bar: True
 
   menu_bar:
@@ -119,5 +119,7 @@ window:
                     name:    graph
                     type:    figure
                     subtype: graph
+                    x_axis: { name: 'time (s)' }
+                    y_axis: { name: 'error' }
                     view_size: [10, 10]
 

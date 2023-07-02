@@ -1,6 +1,6 @@
 window:
   size: [100, 50, 1000, 500]  # [start_x, start_y, width, height]
-  title: Example of a win form
+  title: Move cart to a given point keeping the pole upright
   status_bar: True
 
   menu_bar:
@@ -108,7 +108,7 @@ window:
                           title:   Number of points
                           type:    Slider
                           parms:   [100, 10000, 1]      # [min_value, max_value, scale]
-                          value:   1000
+                          value:   500
                       - control:
                           name:    redraw
                           title:   Run again
@@ -119,5 +119,8 @@ window:
                     name:    graph
                     type:    figure
                     subtype: graph
+                    title:   Error in distance control
+                    x_axis: { name: 'time (s)' }
+                    y_axis: { name: 'error' }
                     view_size: [10, 10]
 
