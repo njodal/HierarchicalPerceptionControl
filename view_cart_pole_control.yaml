@@ -77,6 +77,7 @@ window:
                     name:    controls
                     type:    grid
                     subtype: vertical
+                    width:   300
                     desc:    panel is composed of two sides, the one at the left has controls, at the right a Figure to show a grapth
                     controls:
                       - control:
@@ -119,7 +120,8 @@ window:
                     name:    graph
                     type:    figure
                     subtype: graph
+                    title:   error evolution
                     x_axis: { name: 'time (s)' }
-                    y_axis: { name: 'error' }
+                    y_axis: { name: 'pole angle error (degrees)' }
                     view_size: [10, 10]
 

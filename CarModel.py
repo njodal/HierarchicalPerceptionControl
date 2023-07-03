@@ -57,7 +57,7 @@ class CarModel:
         self.current_pos += self.current_v*dt
 
     def get_state(self):
-        return self.current_pos, self.current_v
+        return self.current_pos, self.current_v, self.current_acc
 
     def set_output_lag(self, new_output_lag):
         self.olag = new_output_lag

@@ -23,19 +23,24 @@ class CarSpeedControlHost(WinForm.HostModel):
         self.ks_key                = 'ks'
         self.start_stop_key        = 'start_stop'
         self.start_stop_action_key = 'start_stop_action'
+        self.graph_speed_v         = 'graph_speed'
+        self.graph_speed_acc       = 'graph_acc'
 
         # particular data
         self.dt = dt
 
+        self.model           = CarMod.CarModel(output_lag=0)
         self.speed_reference = ga.RealTimeConstantDataProvider(dt=self.dt, color='Black')
-        self.speed_control   = RealTimeControlSpeedDataProvider(output_lag=0, color='Red')
+        self.speed_control   = RealTimeControlSpeedDataProvider(self.model, color='Red')
+        self.acc_values      = RealTimeAccelerationDataProvider(self.model, dt=self.dt, color='Red')
 
         initial_values = {}
         super(CarSpeedControlHost, self).__init__(initial_values=initial_values)
 
-    def get_data_provider(self, interval=100, min_x=0.0, max_x=10.0, data_provider=None):
+    def get_data_provider(self, figure, interval=100, min_x=0.0, max_x=10.0, data_provider=None):
         """
         Returns the basic setup of the graph, most important one is the data provider
+        :param figure:
         :param interval:       time in milliseconds to show each point in the graph
         :param min_x:          start value in the x-axis
         :param max_x:          max value in the x-axis, after that it starts to scroll left
@@ -45,8 +50,13 @@ class CarSpeedControlHost(WinForm.HostModel):
         dt             = interval/1000  # seconds
         max_points     = int(max_x/dt) + 1
         x_bounds       = [min_x, max_x]
-        data_provider1 = [self.speed_reference, self.speed_control]
-        self.set_references()
+        if figure.name == self.graph_speed_v:
+            data_provider1 = [self.speed_reference, self.speed_control]
+            self.set_references()
+        elif figure.name == self.graph_speed_acc:
+            data_provider1 = [self.acc_values]
+        else:
+            raise Exception('"%s" graph name not implemented' % figure.name)
 
         return interval, max_points, x_bounds, data_provider1
 
@@ -57,7 +67,7 @@ class CarSpeedControlHost(WinForm.HostModel):
         if name == self.ref_speed_key:
             self.set_references()
         elif name == self.olag_key:
-            self.speed_control.set_output_lag(int(value))
+            self.model.set_output_lag(int(value))
         elif name == self.kg_key:
             self.speed_control.set_kg(value)
         elif name == self.ks_key:
@@ -85,24 +95,21 @@ class CarSpeedControlHost(WinForm.HostModel):
 
 
 class RealTimeControlSpeedDataProvider(ga.RealTimeDataProvider):
-    def __init__(self, dt=0.1, gains=(2.0, 1.0), reference=0.0, output_lag=0, min_y=-1.0, max_y=15.0, color='Black'):
+    def __init__(self, model, dt=0.1, gains=(2.0, 1.0), reference=0.0, min_y=-1.0, max_y=15.0, color='Black'):
         self.reference = reference
         def_control    = {'type': 'PCU', 'name': 'speed', 'gains': gains}
-        def_control    = {'type': 'AdaptiveP', 'name': 'speed', 'learning_rate': 0.001, 'decay_rate': 0.0,
-                          'past_length': 10, 'gain': 0.1, 'debug': True}
+        # def_control    = {'type': 'AdaptiveP', 'name': 'speed', 'learning_rate': 0.001, 'decay_rate': 0.0,
+        #                  'past_length': 10, 'gain': 0.1, 'debug': True}
         self.control   = CarCon.CarSpeedControl(self.reference, def_control)
-        self.model     = CarMod.CarModel(output_lag=output_lag)
+        self.model     = model
         super(RealTimeControlSpeedDataProvider, self).__init__(dt=dt, min_y=min_y, max_y=max_y, color=color)
 
-    def set_output_lag(self, new_output_lag):
-        self.model.set_output_lag(new_output_lag)
-
     def set_kg(self, new_kg):
-        # self.control.set_kg(new_kg)
+        self.control.set_kg(new_kg)
         pass
 
     def set_ks(self, new_kg):
-        # self.control.set_ks(new_kg)
+        self.control.set_ks(new_kg)
         pass
 
     def set_reference(self, new_reference):
@@ -113,10 +120,22 @@ class RealTimeControlSpeedDataProvider(ga.RealTimeDataProvider):
         x      = self.t
         acceleration = self.control.get_action(self.model.get_state())
         self.model.apply_acc(acceleration, self.dt)
-        position, speed = self.model.get_state()
+        position, speed, _ = self.model.get_state()
 
         self.t += self.dt
         return x, speed
+
+
+class RealTimeAccelerationDataProvider(ga.RealTimeDataProvider):
+    def __init__(self, model, dt=0.1, min_y=-10.0, max_y=10.0, color='Black'):
+        self.model = model
+        super(RealTimeAccelerationDataProvider, self).__init__(dt=dt, min_y=min_y, max_y=max_y, color=color)
+
+    def get_next_values(self, i):
+        x      = self.t
+        _, _, acceleration = self.model.get_state()
+        self.t += self.dt
+        return x, acceleration
 
 
 if __name__ == '__main__':

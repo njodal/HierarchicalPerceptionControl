@@ -1,6 +1,6 @@
 window:
-  size: [100, 50, 1000, 400]  # [start_x, start_y, width, height]
-  title: Example of an real time graph
+  size: [100, 50, 1000, 600]  # [start_x, start_y, width, height]
+  title: Control of a Car speed
   status_bar: True
 
   toolbar:
@@ -40,7 +40,7 @@ window:
                       title:   Proportional Gain
                       type:    EditNumberSpin
                       parms:   {step: 0.1}
-                      value:   2
+                      value:   0.9
                   - control:
                       name:    ks
                       title:   Integrative Gain
@@ -49,11 +49,22 @@ window:
                       value:   1
 
           - item:
-              name:    graph
-              type:    figure
-              subtype: animation
-              title:   Speed control
-              x_axis: { name: 'time (s)' }
-              y_axis: { name: 'speed (m/s)' }
-              view_size: [10, 10]
+              name: graphs
+              type: grid
+              subtype: vertical
+              layout:
+                - item:
+                    name:    graph_speed
+                    type:    figure
+                    subtype: animation
+                    title:   Speed control
+                    x_axis: { name: 'time (s)' }
+                    y_axis: { name: 'speed (m/s)' }
+                - item:
+                    name:    graph_acc
+                    type:    figure
+                    subtype: animation
+                    title:   Acceleration
+                    x_axis: { name: 'time (s)' }
+                    y_axis: { name: 'acceleration (m/s2)' }
 

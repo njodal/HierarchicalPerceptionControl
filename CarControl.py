@@ -18,7 +18,7 @@ class CarSpeedControl:
         self.speed_reference = new_speed_reference
 
     def get_action(self, observation):
-        _, current_speed = observation
+        _, current_speed, _ = observation
         self.sqr_errors += abs(self.speed_reference - current_speed)
         acc_reference = self.control_speed.get_output(self.speed_reference, current_speed)
         # print('err:%s observation:%s acc:%s' % (self.sqr_errors, observation, acc_reference))
@@ -44,7 +44,7 @@ class CarPositionalControl:
         self.sqr_errors         = 0.0
 
     def get_action(self, observation):
-        current_position, current_speed = observation
+        current_position, current_speed, _ = observation
         self.sqr_errors += abs(self.position_reference - current_position)
         speed_reference = self.control_position.get_output(self.position_reference, current_position)
         acc_reference   = self.control_speed.get_output(speed_reference, current_speed)
