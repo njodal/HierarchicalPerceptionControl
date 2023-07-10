@@ -25,3 +25,10 @@ general:
               desc:   adaptive
               input:  [3.0, 3, 0.1, 1000, {'type':AdaptiveP, 'name':speed, 'learning_rate': 0.01, 'decay_rate': 0.0, 'past_length':10, 'gain':0.1, 'debug': True}, True]
               output: 3.0
+
+    - test:
+        call: test_auto_tune_speed_control
+        cases:
+          - case:
+              input:  ['simple', 4, 5.0, 0.1, 50, [[0, 5]], {'type':PID, 'name':speed, gains:[1.0, 0.0, 0.0]}, True]
+              output: [1.71, 0.15, 0.26]

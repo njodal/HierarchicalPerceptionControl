@@ -22,7 +22,7 @@ def twiddle(function_object, threshold=0.1, change=10.0, max_iterations=1000, go
     Twiddle Learning algorithm
             see: https://martin-thoma.com/twiddle/
      given a function with parameters, optimize the parameters
-     function is actually an Object who need to implement:
+     function is actually a subclass of AutoTuneFunction:
         Object.get_parameters()
             dict with the parameters names and initial values
         Object.function(parameters)
@@ -50,7 +50,7 @@ def twiddle(function_object, threshold=0.1, change=10.0, max_iterations=1000, go
     for k, _ in p.items():
         dp[k] = change
 
-    best_err = function_object.function(p)
+    best_err = function_object.run_function_with_parameters(p)
     best_p   = p
 
     j = 0  # for returning the iteration that succeeded
@@ -67,7 +67,7 @@ def twiddle(function_object, threshold=0.1, change=10.0, max_iterations=1000, go
 
         for k, v in p.items():
             p[k] += dp[k]    # change one parameter
-            err   = function_object.function(p)  # try what happens
+            err   = function_object.run_function_with_parameters(p)  # try what happens
             if function_object.is_better(err, best_err):
                 # There was some improvement (best result so far), increment the change of this parameter
                 best_err = err
@@ -77,7 +77,7 @@ def twiddle(function_object, threshold=0.1, change=10.0, max_iterations=1000, go
             else:
                 # There was no improvement, try a change in the opposite direction
                 p[k] -= bad_inc*dp[k]  # Go into the other direction
-                err   = function_object.function(p)
+                err   = function_object.run_function_with_parameters(p)
 
                 if function_object.is_better(err, best_err):
                     # There was some improvement
@@ -92,6 +92,29 @@ def twiddle(function_object, threshold=0.1, change=10.0, max_iterations=1000, go
                     dp[k] *= dec_inc
                     # print 'bad bad %s'  %(best_err)
     return best_err, best_p, j
+
+
+class AutoTuneFunction(object):
+    def __init__(self, max_iter=500):
+        self.max_iter = max_iter
+        self.total_i  = 0  # number of calls to run_function_with_parameters
+
+    def auto_tune_with_twiddle(self, threshold=0.01, change=10.0, bad_inc=2.0, mid_inc=1.05):
+        return twiddle(self, threshold=threshold, change=change, bad_inc=bad_inc, mid_inc=mid_inc)
+
+    def get_parameters(self):
+        return {}
+
+    def run_function_with_parameters(self, parameters):
+        self.total_i += 1
+        cost          = 0.0
+        return cost
+
+    def is_better(self, value1, value2):
+        return value1 < value2
+
+    def is_best(self, value):
+        return abs(value) < 0.0001
 
 
 def dict_sum(a_dict):

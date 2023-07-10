@@ -30,23 +30,36 @@ window:
                       value:   4
                       tooltip: time it takes the system to response to a given acceleration (measured in cycles)
                   - control:
+                      name:    slope
+                      title:   Road slope (degrees)
+                      type:    Slider
+                      parms:   [-45, 45, 1]      # [min_value, max_value, scale]
+                      value:   0
+                      tooltip: road slope (positive - up, negative - down)
+                  - control:
                       name:    ref_speed
                       title:   Reference Speed
                       type:    Slider
                       parms:   [0, 10, 1]      # [min_value, max_value, scale]
                       value:   5
                   - control:
-                      name:    kg
+                      name:    p
                       title:   Proportional Gain
                       type:    EditNumberSpin
                       parms:   {step: 0.1}
-                      value:   0.9
+                      value:   1.5
                   - control:
-                      name:    ks
+                      name:    i
                       title:   Integrative Gain
                       type:    EditNumberSpin
                       parms:   {step: 0.1}
-                      value:   1
+                      value:   0.1
+                  - control:
+                      name:    d
+                      title:   Derivative Gain
+                      type:    EditNumberSpin
+                      parms:   {step: 0.1}
+                      value:   0.25
 
           - item:
               name: graphs

@@ -1,5 +1,284 @@
-from signals import SignalHistory
+import signals as sg
 import unit_test as ut
+
+
+class GenericControlUnit(object):
+    """
+    Abstract class to control units like PID or PUC
+    """
+
+    def __init__(self, bounds=(), min_error=0.0, dt=0.1, min_dt=0.0001, max_change=0.0, key='', debug=False):
+        """
+        :param bounds:      min and max value for output
+        :param min_error:   defines the error too small to react
+        :param dt:          interval between outputs
+        :param: min_dt:     minimum dt to be useful, if less than this value a dt of 0.0 is assumed
+        :param max_change:  how much output can change in one cycle (0=unbounded)
+        :param key:         name used to recognize unit in a dictionary (useful for HCPU)
+        """
+        self.key        = key
+        self.min_error  = min_error
+        self.max_change = max_change
+        self.bounds     = bounds
+        self.debug      = debug
+        # print('  bounds for %s:%s' % (self.key, self.bounds))
+
+        # to avoid warnings
+        self.o  = 0.0  # output
+        self.r  = 0.0  # reference (or set point)
+        self.e  = 0.0  # error: difference between reference and perception (in that order)
+
+        self.dt     = dt
+        self.min_dt = min_dt
+        self.reference_changed = True
+
+        # initialization
+        self.reset()
+
+    def update(self, p, dt=0.0):
+        """
+        Given a p (perception) updates the new o (output)
+        :param p:   new perception
+        :param dt:  interval since last perception
+                      * 0.0 means caller is not providing time so the predefined one is used
+                      * if > 0.0 the predefined one is also changed
+        :return: output
+        """
+        if dt > self.min_dt:
+            # updates the predefined one
+            self.dt = dt
+
+        new_error = self.r - p
+        if abs(new_error) < self.min_error:
+            new_error = 0.0
+
+        new_o = self.calc_output(new_error)
+
+        if self.debug:
+            print('o:%.3f r:%.3f p:%.3f e:%.3f' % (new_o, self.r, p, new_error))
+
+        if self.max_change > 0.0:
+            # output change is bounded, cannot change too much
+            # old_o = self.o
+            self.o = sg.bound_value(new_o, [self.o - self.max_change, self.o + self.max_change])
+            # print('old_o:%.2f max:%.2f new_o:%.2f self.o:%.2f' % (old_o, self.max_change, new_o, self.o))
+        else:
+            self.o = new_o
+
+        self.o = sg.bound_value(self.o, self.bounds)
+
+        self.reference_changed = False
+        # print('e:%s p:%s o:%s g:%s bounds:%s key:%s' % (self.e, p, self.o, self.g, self.bounds, self.key))
+        return self.o
+
+    def calc_output(self, _):
+        """
+        Abstract method, each particular controller must provide it own method
+        :param _:
+        :return:
+        """
+        pass
+
+    def get_output(self, r, p, dt=0.0, bounds=None):
+        """
+        Just a convenient form go get the Output (most of the time a reference is set and later an update is called)
+        :param r:  reference value
+        :param p:  perception value (input)
+        :param dt:
+        :param bounds:
+        :return:   output
+        """
+        self.set_bounds(bounds)
+        self.set_reference(r)
+        return self.update(p, dt)
+
+    def output(self):
+        return self.o
+
+    def set_output(self, new_output):
+        """
+        Hard setting of output (instead of calculating by the controller)
+        ex: someone moved the throttle pedal in a car
+        :param new_output:
+        :return:
+        """
+        self.o = new_output
+
+    def adjust_output(self, status):
+        # given a dict (status), adjust output if value is in dict
+        if self.key in status:
+            self.set_output(status[self.key])
+
+    def set_reference(self, r, precision=0.01):
+        if abs(self.r - r) > precision:
+            self.reference_changed = True
+        self.r = r
+
+    def set_bounds(self, bounds):
+        """
+        Set new max and min value for output
+        :param bounds:
+        :return:
+        """
+        if bounds is not None:
+            self.bounds = bounds  # min/max values for output ([] = no bounds)
+
+    def reset(self):
+        """
+        Reset the controller
+        :return:
+        """
+        self.o = 0.0
+        self.e = 0.0
+        self.reference_changed = True
+        self.reset_specific()
+
+    def reset_specific(self):
+        """
+        Abstract method
+        Many controllers have specific requirements at reset time, so this method is provided
+        :return: None
+        """
+        pass
+
+    def get_parameters(self):
+        """
+        Abstract method, returns the ControlUnit parameters that can be tuned
+        :return: dict with controller's parameters
+        """
+        return {}
+
+    def set_parameters(self, parameters):
+        """
+        Abstract method, sets a new parameters
+        :param parameters:
+        :return:
+        """
+        return {}
+
+    def parm_string(self):
+        """
+        Used to print controller's parameters
+        :return:
+        """
+        return dict_to_label(self.get_parameters())
+
+
+class PID(GenericControlUnit):
+    """
+    PID controller as defined in http://en.wikipedia.org/wiki/PID_controller but many enhancements like:
+     * bounds for output values (in its value or in its rate of change),
+     * protection against integrator windup
+        see: https://controlguru.com/integral-reset-windup-jacketing-logic-and-the-velocity-pi-form/
+    """
+
+    type = 'PID'
+
+    def __init__(self, p=0.1, i=0.0, d=0.0, dt=0.1, bounds=(), integrator_length=20, integrator_windup=30,
+                 integrator_reset=False, max_change=0.0, min_error=0.0, key='PID', debug=False):
+        """
+        :param p: Proportional gain
+        :param i: Integrator gain
+        :param d: Derivative gain
+        :param dt:     delta time
+        :param bounds: min and max values for output
+        :param integrator_length: number of last values to be taken in integration
+        :param integrator_windup: max value (positive and negative) the integrator can have
+        :param integrator_reset:  if True means the integrator value is to 0 every time the reference values changes
+        :param max_change: max change output can have in one interval
+        :param min_error:  error less than this is too small to react
+        :param key:
+        :param debug:
+        """
+        self.k_p = p
+        self.k_i = i
+        self.k_d = d
+        self.i_windup          = integrator_windup
+        self.integrator_length = integrator_length
+        self.integrator_reset  = integrator_reset
+        self.first_time = True
+        super(PID, self).__init__(bounds=bounds, dt=dt, max_change=max_change, min_error=min_error, key=key,
+                                  debug=debug)
+
+        # there are two kind of integrators, the first one is a traditional one (just summing all values)
+        # and the second one just take in count the lasts (integrator_length) values
+        self.integrator        = 0.0
+        self.integrator_values = sg.SignalHistory(length=self.integrator_length)
+
+        self.p_value = 0.0
+        self.i_value = 0.0
+        self.d_value = 0.0
+
+        if self.debug:
+            print('PID params: %s' % self.parm_string())
+
+    def calc_output(self, new_error):
+        delta_error = new_error - self.e
+        self.e = new_error
+
+        self.p_value = self.k_p * self.e
+        if self.first_time:
+            self.first_time = False
+            return self.p_value
+
+        self.set_integrator(self.e * self.dt)
+        self.i_value = self.k_i * self.integrator
+
+        self.d_value = self.k_d * delta_error / self.dt if self.dt > self.min_dt else 0.0
+
+        o = self.p_value + self.i_value + self.d_value
+
+        return o
+
+    def set_integrator(self, value):
+        """
+        Given the new perception (value), update the integrator taken in count all the integrator parameters
+        :param value: perception
+        :return: None, but updates integrator
+        """
+        if abs(self.k_i) < 0.0001:
+            return
+
+        if self.integrator_reset and self.reference_changed:
+            self.integrator = 0.0
+        elif self.integrator_values.get_len() > 1 and False:
+            self.integrator_values.append(value)
+            self.integrator = self.integrator_values.sum()
+        else:
+            self.integrator += value
+        # self.integrator = sg.bound_value(self.integrator, [-self.i_windup, self.i_windup])
+        if self.debug:
+            print('   i:%.3f v:%.3f (e:%.3f dt:%s, key:%s)' % (self.integrator, value, self.e, self.dt, self.key))
+
+    def reset_specific(self):
+        self.integrator        = 0.0
+        self.integrator_values = sg.SignalHistory(length=self.integrator_length)
+
+    def get_parameters(self):
+        return {'p': self.k_p, 'i': self.k_i, 'd': self.k_d}
+
+    def set_parameters(self, parameters):
+        self.k_p = parameters.get('p', self.k_p)
+        self.k_i = parameters.get('i', self.k_i)
+        self.k_d = parameters.get('d', self.k_d)
+        self.i_windup = parameters.get('i_windup', self.i_windup)
+
+
+class P(PID):
+    """
+    Just a Proportional controller (it is implemented over a PID with just the proportional gain available)
+    The only difference with a PID with I and D in 0.0 is the only gain that can be used in twiddle is P
+    """
+
+    def __init__(self, p=0.1, dt=0.1, bounds=(), max_change=0.0, min_error=0.0, key='P', debug=False):
+        super(P, self).__init__(p=p, bounds=bounds, dt=dt, max_change=max_change, min_error=min_error, key=key,
+                                debug=debug)
+
+    def get_parameters(self):
+        return {'p': self.k_p}
+
+    def set_parameters(self, parameters):
+        self.k_p = parameters.get('p', self.k_p)
 
 
 class PCUControlUnit:
@@ -65,7 +344,7 @@ class AdaptiveControlUnit:
         self.max_change    = max_change
         self.decay_rate    = decay_rate
         self.past_length   = past_length
-        self.past_errors   = SignalHistory(length=self.past_length)
+        self.past_errors   = sg.SignalHistory(length=self.past_length)
         self.weights       = [0.0 for _ in range(self.past_length+1)]
         self.debug         = debug
 
@@ -108,6 +387,9 @@ def create_control(control_params):
     control_debug = control_params.get('debug', False)
     if control_type == PCUControlUnit.type:
         control = PCUControlUnit(control_name, gains=control_params.get('gains'), debug=control_debug)
+    elif control_type == PID.type:
+        gains   = control_params.get('gains')
+        control = PID(key=control_name, p=gains[0], i=gains[1], d=gains[2], debug=control_debug)
     elif control_type == AdaptiveControlUnit.type:
         gain    = control_params.get('gain', 1.0)
         l_rate  = control_params.get('learning_rate', 0.01)
@@ -129,7 +411,7 @@ class DeConvolution:
         self.learning_rate = learning_rate
         self.max_change    = max_change
         self.decay_rate    = decay_rate
-        self.past_inputs   = SignalHistory(length=self.past_length)
+        self.past_inputs   = sg.SignalHistory(length=self.past_length)
         self.weights       = [0.0 for _ in range(self.past_length+1)]
 
     def get_output(self, input_value, output_value):
@@ -167,6 +449,18 @@ def signum(number, min_v=0.000001):
         return 1
     else:
         return 0
+
+
+def dict_to_label(values, exclude_keys=(), max_length=80):
+    message = ''
+    for k, v in values.items():
+        if len(message) > max_length:
+            break
+        if k in exclude_keys:
+            continue
+        v1 = '%.2f' % v if isinstance(v, float) else v
+        message += '%s: %s ' % (k, v1)
+    return message
 
 
 # Tests

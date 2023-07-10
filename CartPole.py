@@ -13,8 +13,8 @@ class BaseGymControl(object):
 
     def __init__(self, reference, overshoot_gain=1.0):
         # to avoid warnings
-        self.total_error = 0.0
-        self.reference   = 0.0
+        self.total_error      = 0.0
+        self.reference        = 0.0
         self.max_overshoot    = 0.0
         self.current_e        = 0.0
         self.initial_err_sign = 0
@@ -61,8 +61,8 @@ class MoveCartToPosition(BaseGymControl):
         max_pole_angle    = math.radians(max_pole_angle_allowed)
         self.unit1        = PCUControlUnit('cart position', gains=gains[0],
                                            output_bounds=(-max_pole_angle, max_pole_angle), debug=False)
-        last_gains        = [g for i, g in enumerate(gains) if i > 0]
-        self.down_control = GymControlCartPoleAtAngle(last_gains, debug_units=[False, False, False, False])
+        lower_levels_gains = [g for i, g in enumerate(gains) if i > 0]
+        self.down_control  = GymControlCartPoleAtAngle(lower_levels_gains, debug_units=[False, False, False, False])
         super(MoveCartToPosition, self).__init__(cart_pos_reference, overshoot_gain=overshoot_gain)
 
     def get_last_error(self):
@@ -163,7 +163,7 @@ class AutoTunePoleAngleControl:
         return abs(error) <= precision
 
 
-class AutoTuneCartPositionControl:
+class AutoTuneCartPositionControl(at.AutoTuneFunction):
     def __init__(self, kg, ks, control_gains, max_iter=500, cart_pos_reference=0.0, not_stable_gain=100.0, render=False,
                  debug=False):
         self.p_name1  = 'kg'
@@ -180,6 +180,7 @@ class AutoTuneCartPositionControl:
         self.bad_g    = not_stable_gain
         self.control  = None
         self.reset()
+        super(AutoTuneCartPositionControl, self).__init__()
 
     def reset(self):
         gains = self.other_g.copy()
@@ -197,7 +198,8 @@ class AutoTuneCartPositionControl:
         self.reset()
 
     def auto_tune(self):
-        best_error, best_parameters, steps = at.twiddle(self, threshold=0.01, change=10.0, bad_inc=2.0, mid_inc=1.05)
+        best_error, best_parameters, steps = self.auto_tune_with_twiddle(threshold=0.01, change=10.0, bad_inc=2.0,
+                                                                         mid_inc=1.05)
         if self.debug:
             print('best cost:%.3f parameters:%s tries:%s' % (best_error, best_parameters, steps))
         self.set_parameters(best_parameters)
@@ -205,8 +207,9 @@ class AutoTuneCartPositionControl:
                                        render_mode=self.render_m)
         steps, _ = env.run_episode(initial_values=[[0, 0.0], [1, 0.0], [2, 0.0]], debug=self.debug)
         print('    %s steps:%s' % (self.control.summary_string(), steps))
+        return best_parameters
 
-    def function(self, parameters):
+    def run_function_with_parameters(self, parameters):
         self.total_i += 1
         self.set_parameters(parameters)
         env      = GymEnv.BaseEnvironment('CartPole-v1', control=self.control, render_mode=None)

@@ -172,6 +172,20 @@ class DelayedSignal(SignalHistory):
         return self.values[0] if len(self.values) >= self.get_len() else None
 
 
+def bound_value(value, bounds):
+    if not bounds:
+        return value
+
+    [min_v, max_v] = bounds
+    if value > max_v:
+        return max_v
+    elif value < min_v:
+        return min_v
+    else:
+        return value
+
+
+# tests
 def test_delayed_signal(lag, sequence):
     delayed = DelayedSignal(delay=lag)
     for v in sequence:
