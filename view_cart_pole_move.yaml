@@ -121,6 +121,6 @@ window:
                     type:    figure
                     subtype: graph
                     title:   Error evolution
-                    x_axis: { name: 'time (s)' }
+                    x_axis: { name: 'steps' }
                     y_axis: { name: 'error' }
 

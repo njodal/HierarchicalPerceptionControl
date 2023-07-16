@@ -174,7 +174,7 @@ class PID(GenericControlUnit):
 
     type = 'PID'
 
-    def __init__(self, p=0.1, i=0.0, d=0.0, dt=0.1, bounds=(), integrator_length=20, integrator_windup=30,
+    def __init__(self, p=0.1, i=0.0, d=0.0, dt=0.1, bounds=(), integrator_length=20, integrator_windup=300,
                  integrator_reset=False, max_change=0.0, min_error=0.0, key='PID', debug=False):
         """
         :param p: Proportional gain
@@ -264,6 +264,70 @@ class PID(GenericControlUnit):
         self.i_windup = parameters.get('i_windup', self.i_windup)
 
 
+class IncrementalPID(GenericControlUnit):
+    """
+    Incremental PID as defined in https://d-nb.info/1208071297/34
+    """
+
+    type = 'IncrementalPID'
+
+    def __init__(self, p=0.1, i=0.0, d=0.0, dt=0.1, bounds=(), max_change=0.0, min_error=0.0, key='PID', debug=False):
+        """
+        :param p: Proportional gain
+        :param i: Integrator gain
+        :param d: Derivative gain
+        :param dt:     delta time
+        :param bounds: min and max values for output
+        :param max_change: max change output can have in one interval
+        :param min_error:  error less than this is too small to react
+        :param key:
+        :param debug:
+        """
+        self.k_p = p
+        self.k_i = i
+        self.k_d = d
+
+        self.last_e      = 0.0
+        self.last_last_e = 0.0
+        self.first_time = True
+        super(IncrementalPID, self).__init__(bounds=bounds, dt=dt, max_change=max_change, min_error=min_error, key=key,
+                                             debug=debug)
+
+        self.p_value = 0.0
+        self.i_value = 0.0
+        self.d_value = 0.0
+
+        if self.debug:
+            print('Incremental PID params: %s' % self.parm_string())
+
+    def calc_output(self, new_error):
+        self.e = new_error
+
+        self.p_value = self.k_p * (self.e - self.last_e)
+        self.i_value = self.k_i * self.e
+        self.d_value = self.k_d * (self.e - 2*self.last_e + self.last_last_e)
+
+        delta_o = self.p_value + self.i_value + self.d_value
+        o       = self.o + delta_o
+
+        self.last_last_e = self.last_e
+        self.last_e      = self.e
+
+        return o
+
+    def reset_specific(self):
+        self.last_e = 0.0
+        self.last_last_e = 0.0
+
+    def get_parameters(self):
+        return {'p': self.k_p, 'i': self.k_i, 'd': self.k_d}
+
+    def set_parameters(self, parameters):
+        self.k_p = parameters.get('p', self.k_p)
+        self.k_i = parameters.get('i', self.k_i)
+        self.k_d = parameters.get('d', self.k_d)
+
+
 class P(PID):
     """
     Just a Proportional controller (it is implemented over a PID with just the proportional gain available)
@@ -281,7 +345,7 @@ class P(PID):
         self.k_p = parameters.get('p', self.k_p)
 
 
-class PCUControlUnit:
+class PCUControlUnit(GenericControlUnit):
     """
     Control Unit as used in Perceptual Control Theory:
         o = o + (kg*e - o)/ks
@@ -291,26 +355,29 @@ class PCUControlUnit:
     key_g = 'g'
     key_s = 's'
 
-    def __init__(self, name, gains, output_bounds=(), debug=False):
-        self.name   = name
+    def __init__(self, name, gains, bounds=(), dt=0.1, max_change=0.0, min_error=0.0, debug=False):
         self.kg     = gains[0]
         self.ks     = gains[1] if len(gains) > 1 else 1.0
-        self.bounds = output_bounds
-        self.debug  = debug
+        super(PCUControlUnit, self).__init__(bounds=bounds, dt=dt, max_change=max_change, min_error=min_error,
+                                             key=name, debug=debug)
 
-        self.o = 0.0
-        self.e = 0.0
-
-    def get_output(self, reference, perception):
+    def get_output(self, reference, perception, dt=0.0, bounds=None, min_ks=0.01):
         self.e = reference - perception
-        self.o = self.o + (self.kg * self.e - self.o) / self.ks
+        if 0.0 <= self.ks < min_ks:
+            ks = min_ks
+        elif 0.0 > self.ks > - min_ks:
+            ks = -min_ks
+        else:
+            ks = self.ks
+
+        self.o = self.o + (self.kg * self.e - self.o) / ks
         if len(self.bounds) > 0:
             if self.o < self.bounds[0]:
                 self.o = self.bounds[0]
             elif self.o > self.bounds[1]:
                 self.o = self.bounds[1]
         if self.debug:
-            print('        %s r:%.2f p:%.2f e:%.2f o:%.4f' % (self.name, reference, perception, self.e, self.o))
+            print('        %s r:%.2f p:%.2f e:%.2f o:%.4f' % (self.key, reference, perception, self.e, self.o))
         return self.o
 
     def get_parameters(self):
@@ -325,6 +392,53 @@ class PCUControlUnit:
 
     def set_ks(self, new_ks):
         self.ks = new_ks
+
+
+class BangBang(GenericControlUnit):
+    """
+    BangBang controller as defined in https://en.wikipedia.org/wiki/Bang%E2%80%93bang_control
+        output can have only two values (typically On or Off)
+    """
+
+    def __init__(self, bellow_value=1, above_value=0, hysteresis=0.0, key='BB'):
+        """
+        :param bellow_value:  output when p is bellow reference
+        :param above_value:   output when p is above reference
+        :param hysteresis:    range from reference in which send the last output
+        :param key:
+        """
+        super(BangBang, self).__init__(key=key)
+        self.bellow_value = bellow_value
+        self.above_value  = above_value
+        self.hysteresis   = hysteresis
+
+    def calc_output(self, new_error):
+        self.e = new_error
+
+        if self.hysteresis < 0:
+            low  = self.r + self.hysteresis
+            high = self.r
+        else:
+            low  = self.r
+            high = self.r + self.hysteresis
+
+        p = self.r - self.e
+        if p <= low:
+            o = self.bellow_value
+        elif p > high:
+            o = self.above_value
+        else:
+            o = self.o
+        # print '  low:%s high:%s p:%s o:%s' % (low, high, p, o)
+        return o
+
+    def get_parameters(self):
+        return {'bellow': self.bellow_value, 'above': self.above_value, 'hysteresis': self.hysteresis}
+
+    def set_parameters(self, parameters):
+        self.bellow_value = parameters.get('bellow',     self.bellow_value)
+        self.above_value  = parameters.get('above',      self.above_value)
+        self.hysteresis   = parameters.get('hysteresis', self.hysteresis)
 
 
 class AdaptiveControlUnit:
@@ -346,12 +460,18 @@ class AdaptiveControlUnit:
         self.past_length   = past_length
         self.past_errors   = sg.SignalHistory(length=self.past_length)
         self.weights       = [0.0 for _ in range(self.past_length+1)]
+        self.reference_changed = True
         self.debug         = debug
 
         self.r = 0.0
         self.o = 0.0
         self.e = 0.0
         self.p = 0.0
+
+    def set_reference(self, r, precision=0.01):
+        if abs(self.r - r) > precision:
+            self.reference_changed = True
+        self.r = r
 
     def get_output(self, reference, perception):
         self.r = reference
@@ -379,17 +499,33 @@ class AdaptiveControlUnit:
                 print('      i:%s e:%.3f w:%.3f v:%.3f change:%.3f' % (i, e, self.weights[i], self.weights[i]*e,
                                                                        change))
 
+    def get_parameters(self):
+        return {}
+
+    def set_parameters(self, parameters):
+        pass
+
 
 def create_control(control_params):
+    if control_params is None:
+        return None
+
     # print(control_params)
-    control_type  = control_params['type']
-    control_name  = control_params.get('name', 'NoName')
-    control_debug = control_params.get('debug', False)
+    control_type   = control_params['type']
+    control_name   = control_params.get('name', 'NoName')
+    control_bounds = control_params.get('bounds', [])
+    control_debug  = control_params.get('debug', False)
+
     if control_type == PCUControlUnit.type:
-        control = PCUControlUnit(control_name, gains=control_params.get('gains'), debug=control_debug)
+        control = PCUControlUnit(control_name, gains=control_params.get('gains'), bounds=control_bounds,
+                                 debug=control_debug)
     elif control_type == PID.type:
         gains   = control_params.get('gains')
-        control = PID(key=control_name, p=gains[0], i=gains[1], d=gains[2], debug=control_debug)
+        control = PID(key=control_name, p=gains[0], i=gains[1], d=gains[2], bounds=control_bounds, debug=control_debug)
+    elif control_type == IncrementalPID.type:
+        gains = control_params.get('gains')
+        control = IncrementalPID(key=control_name, p=gains[0], i=gains[1], d=gains[2], bounds=control_bounds,
+                                 debug=control_debug)
     elif control_type == AdaptiveControlUnit.type:
         gain    = control_params.get('gain', 1.0)
         l_rate  = control_params.get('learning_rate', 0.01)

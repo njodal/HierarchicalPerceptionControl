@@ -1,7 +1,7 @@
 import math
 
 import GymEnvironment as GymEnv
-from ControlUnit import PCUControlUnit, signum
+from ControlUnit import PCUControlUnit, BangBang, signum
 import auto_tune as at
 import unit_test as ut
 
@@ -60,7 +60,7 @@ class MoveCartToPosition(BaseGymControl):
     def __init__(self, gains, cart_pos_reference=0.0, max_pole_angle_allowed=5, overshoot_gain=5.0):
         max_pole_angle    = math.radians(max_pole_angle_allowed)
         self.unit1        = PCUControlUnit('cart position', gains=gains[0],
-                                           output_bounds=(-max_pole_angle, max_pole_angle), debug=False)
+                                           bounds=(-max_pole_angle, max_pole_angle), debug=False)
         lower_levels_gains = [g for i, g in enumerate(gains) if i > 0]
         self.down_control  = GymControlCartPoleAtAngle(lower_levels_gains, debug_units=[False, False, False, False])
         super(MoveCartToPosition, self).__init__(cart_pos_reference, overshoot_gain=overshoot_gain)
@@ -87,6 +87,7 @@ class GymControlCartPoleAtAngle(BaseGymControl):
         self.unit2 = PCUControlUnit('pole speed', control_gains[1], debug=debug_flag[1])
         self.unit3 = PCUControlUnit('cart pos',   control_gains[2], debug=debug_flag[2])
         self.unit4 = PCUControlUnit('cart speed', control_gains[3], debug=debug_flag[3])
+        self.unit5 = BangBang(bellow_value=0, above_value=1, hysteresis=0.0, key='cart action')
 
         overshoot_gain = 1.0  # not problem to have overshot in this case
         super(GymControlCartPoleAtAngle, self).__init__(pole_angle_reference, overshoot_gain=overshoot_gain)
@@ -100,7 +101,8 @@ class GymControlCartPoleAtAngle(BaseGymControl):
         cart_pos_ref   = self.unit2.get_output(pole_speed_ref, pole_speed)
         cart_speed_ref = self.unit3.get_output(cart_pos_ref, 0.0)  # position is relative not absolute
         action1        = self.unit4.get_output(cart_speed_ref, cart_speed)
-        action = 1 if action1 > 0.0 else 0
+        action         = self.unit5.get_output(0.0, action1)
+        # action = 1 if action1 > 0.0 else 0
         # print('  angle:%.3f speed:%.3f cart pos ref:%.3f speed ref:%.3f' % (math.degrees(pole_angle),
         #                                                                    math.degrees(pole_speed_ref), cart_pos_ref,
         #                                                                    cart_speed_ref))
@@ -145,7 +147,7 @@ class AutoTunePoleAngleControl:
             self.kg = new_parameters[self.p_name]
         self.reset()
 
-    def function(self, parameters):
+    def run_function_with_parameters(self, parameters):
         self.total_i += 1
         self.set_parameters(parameters)
         env      = GymEnv.BaseEnvironment('CartPole-v1', control=self.control, render_mode=None)

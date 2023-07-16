@@ -30,5 +30,8 @@ general:
         call: test_auto_tune_speed_control
         cases:
           - case:
-              input:  ['simple', 4, 5.0, 0.1, 50, [[0, 5]], {'type':PID, 'name':speed, gains:[1.0, 0.0, 0.0]}, True]
+              input:  ['simple', 4, 5.0, 0.1, 50, [[0, 5]], {'type':PID, 'name':speed, gains:[1.0, 0.0, 0.0]}, False]
               output: [1.71, 0.15, 0.26]
+          - case:
+              input:  ['simple', 4, 5.0, 0.1, 50, [[0, 5]], {'type':IncrementalPID, 'name':speed, gains:[1.0, 0.0, 0.0]}, False]
+              output: [2.0, 0.01, 4.0]

@@ -1,8 +1,10 @@
 from ControlUnit import create_control
-from CarModel import CarEnvironment, get_car_type
+from CarModel import CarEnvironment
 import hierarchical_control as hc
+import signals as sg
 import auto_tune as at
 
+import yaml_functions as yf
 import WinDeklar.WindowForm as WinForm
 import WinDeklar.graph_aux as ga
 import unit_test as ut
@@ -10,22 +12,44 @@ import unit_test as ut
 
 class CarSpeedControl(hc.BaseHierarchicalControl):
     """
-    Control the speed of a Car changing its acceleration
+    Control the speed of a Car changing its acceleration and braking pedals
     """
 
     def __init__(self, speed_reference, speed_control_def, overshoot_gain=10.0):
         speed_control = create_control(speed_control_def)
-        super(CarSpeedControl, self).__init__(speed_control, low_levels_controls=None, reference=speed_reference,
-                                              overshoot_gain=overshoot_gain)
+        low_levels    = []
+        super(CarSpeedControl, self).__init__(speed_control, low_levels_controls=low_levels,
+                                              reference=speed_reference, overshoot_gain=overshoot_gain)
 
     def get_main_observation(self, observation):
         return observation[1]  # current car speed
+
+    def get_actions_from_output(self, acceleration):
+        acc     = acceleration if acceleration > 0 else 0
+        brake   = - acceleration if acceleration < 0 else 0
+        actions = {'acc': acc, 'brake': brake}
+        # print('actions: %s' % actions)
+        return actions
 
     def set_kg(self, new_value):
         self.main_control.set_kg(new_value)
 
     def set_ks(self, new_value):
         self.main_control.set_ks(new_value)
+
+
+class CarAccPedalControl(hc.BaseHierarchicalControl):
+    """
+    Control the speed of a Car changing its acceleration
+    """
+
+    def __init__(self, accelerator_control_def, overshoot_gain=1.0):
+        acc_control = create_control(accelerator_control_def)
+        super(CarAccPedalControl, self).__init__(acc_control, low_levels_controls=[], reference=0.0,
+                                                 overshoot_gain=overshoot_gain)
+
+    def get_main_observation(self, observation):
+        return observation[2]  # current car acceleration
 
 
 class AutoTuneCarSpeed(at.AutoTuneFunction):
@@ -62,7 +86,7 @@ class AutoTuneCarSpeed(at.AutoTuneFunction):
 
     def run_function_with_parameters(self, parameters):
         cost, _ = self.run_one_episode(parameters)
-        print('  run, parameters: %s cost: %.2f' % (parameters, cost))
+        # print('  run, parameters: %s cost: %.2f' % (parameters, cost))
         return cost
 
 
@@ -84,6 +108,12 @@ class CarPositionalControl:
         speed_reference = self.control_position.get_output(self.position_reference, current_position)
         acc_reference   = self.control_speed.get_output(speed_reference, current_speed)
         return acc_reference
+
+
+def get_car_controller(controller_name):
+    cars_file  = yf.get_yaml_file('cars/car_controllers.yaml')
+    controller = yf.get_record(cars_file, controller_name, 'controllers', 'controller')
+    return CarSpeedControl(0.0, controller['def'])
 
 
 # tests

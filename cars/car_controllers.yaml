@@ -1,0 +1,31 @@
+general:
+    desc: list of car controllers
+
+controllers:
+  - controller:
+      name: PID
+      desc: fine tuned by hand with 'simple' car
+      def:  {type: PID, name: speed, gains: [2.0, 0.2, 0.0], debug: True}
+  - controller:
+      name: PID1
+      desc: auto tuned with 'simple' car, not works well, cause saturation in the actuators
+      def:  {type: PID, name: speed, gains: [10.0, 0.65, 3.8], debug: True}
+
+  - controller:
+      name: IncrementalPID
+      desc: fine tuned by hand with 'simple' car
+      def:  {type: IncrementalPID, name: speed, gains: [2.0, 0.05, 0.0], debug: True}
+  - controller:
+      name: IncrementalPID1
+      desc: auto tuned with 'simple' car, works pretty well
+      def:  {type: IncrementalPID, name: speed, gains: [2.7, 0.05, 2.9], debug: True}
+
+  - controller:
+      name: PCU
+      desc: fine tuned by hand with 'simple' car, do not respond to a increase in slope
+      def:  {type: PCU, name: speed, gains: [2.0, 1.0], debug: True}
+
+  - controller:
+      name: AdaptiveP
+      desc: fine tuned by hand with 'simple' car
+      def:  {type: AdaptiveP, name: speed, learning_rate: 0.001, decay_rate: 0.0, past_length: 20, gain: 0.1, debug: True}

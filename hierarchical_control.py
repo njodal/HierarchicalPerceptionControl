@@ -7,25 +7,24 @@ class BaseHierarchicalControl(object):
     Base class for all Gymnasium cases
     """
 
-    def __init__(self, main_control, low_levels_controls=None, reference=0.0, overshoot_gain=1.0):
+    def __init__(self, main_control, low_levels_controls=(), reference=0.0, overshoot_gain=1.0, action_name='action'):
         # to avoid warnings
-        self.total_error = 0.0
-        self.reference = 0.0
-        self.max_overshoot = 0.0
-        self.current_e = 0.0
+        self.total_error      = 0.0
+        self.reference        = 0.0
+        self.max_overshoot    = 0.0
+        self.current_e        = 0.0
         self.initial_err_sign = 0
 
+        self.action_name         = action_name
         self.main_control        = main_control
         self.low_levels_controls = low_levels_controls
-
-        self.overshoot_gain = overshoot_gain
+        self.overshoot_gain      = overshoot_gain
         self.set_reference(reference)
 
     def reset(self):
         self.total_error = 0.0
         self.main_control.reset()
-        if self.low_levels_controls is not None:
-            self.low_levels_controls.reset()
+        [control.reset() for control in self.low_levels_controls]
 
     def set_reference(self, new_reference):
         self.reference        = new_reference
@@ -37,24 +36,33 @@ class BaseHierarchicalControl(object):
     def get_main_observation(self, observation):
         return observation[0]
 
-    def get_action(self, observation, info):
+    def get_actions(self, observation, info):
         """
-        Abstract method for getting an action receiving observation and info
+        Returns all the actions to apply to actuators
         :param observation:
         :param info:
         :return:
         """
-        main_observation = self.get_main_observation(observation)
-        second_reference = self.main_control.get_output(self.reference, main_observation)
-        if self.low_levels_controls is None:
-            action = second_reference
+        second_reference = self.get_second_reference(observation)
+        if len(self.low_levels_controls) == 0:
+            actions = self.get_actions_from_output(second_reference)
         else:
-            self.low_levels_controls.set_reference(second_reference)
-            action = self.low_levels_controls.get_action(observation, info)
+            actions = {}
+            for control in self.low_levels_controls:
+                control.set_reference(second_reference)
+                actions.update(control.get_actions(observation, info))
 
         self.add_to_cost(self.main_control.e)
 
-        return action
+        return actions
+
+    def get_second_reference(self, observation):
+        main_observation = self.get_main_observation(observation)
+        second_reference = self.main_control.get_output(self.reference, main_observation)
+        return second_reference
+
+    def get_actions_from_output(self, output):
+        return {self.action_name: output}
 
     def add_to_cost(self, new_error):
         abs_error = abs(new_error)

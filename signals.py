@@ -185,6 +185,35 @@ def bound_value(value, bounds):
         return value
 
 
+# Lineal proportional functions    ####
+def lineal_proportional(x, x1, x2, y1, y2):
+    # defines a line from point (x1, y1) to (x2, y2) and given x returns the corresponding y
+    if x1 == x2:
+        # undefined
+        return y1
+    a = (y1 - y2)/(x1 - x2)
+    return a*(x - x2) + y2
+
+
+def lineal_proportional_bounded(x, x1, x2, y1, y2):
+    # same a lineal_proportional, but y is bound to [y1, y2]
+    y = lineal_proportional(x, x1, x2, y1, y2)
+    min_y = min(y1, y2)
+    max_y = max(y1, y2)
+    if y < min_y:
+        return min_y
+    elif y > max_y:
+        return max_y
+    else:
+        return y
+
+
+def lineal_proportional_bounded_dead_zone_on_zero(x, x1, x2, y1, y2, dead_range, dead_value=0):
+    if abs(x) < dead_range:
+        return dead_value
+    return lineal_proportional_bounded(x, x1, x2, y1, y2)
+
+
 # tests
 def test_delayed_signal(lag, sequence):
     delayed = DelayedSignal(delay=lag)

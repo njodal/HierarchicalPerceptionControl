@@ -1,5 +1,5 @@
 window:
-  size: [100, 50, 1000, 600]  # [start_x, start_y, width, height]
+  size: [100, 50, 1000, 800]  # [start_x, start_y, width, height]
   title: Control of a Car speed
   status_bar: True
 
@@ -43,23 +43,27 @@ window:
                       parms:   [0, 10, 1]      # [min_value, max_value, scale]
                       value:   5
                   - control:
+                      name:    control_type
+                      title:   Control Type
+                      type:    Text
+                  - control:
                       name:    p
                       title:   Proportional Gain
                       type:    EditNumberSpin
                       parms:   {step: 0.1}
-                      value:   1.5
+                      # value:   1.5
                   - control:
                       name:    i
                       title:   Integrative Gain
                       type:    EditNumberSpin
                       parms:   {step: 0.1}
-                      value:   0.1
+                      # value:   0.1
                   - control:
                       name:    d
                       title:   Derivative Gain
                       type:    EditNumberSpin
                       parms:   {step: 0.1}
-                      value:   0.25
+                      # value:   0.25
 
           - item:
               name: graphs
@@ -70,14 +74,14 @@ window:
                     name:    graph_speed
                     type:    figure
                     subtype: animation
-                    title:   Speed control
+                    title:   Speed (black=reference, red=actual)
                     x_axis: { name: 'time (s)' }
                     y_axis: { name: 'speed (m/s)' }
                 - item:
                     name:    graph_acc
                     type:    figure
                     subtype: animation
-                    title:   Acceleration
+                    title:   Pedals (black=accelerator, red=brake)
                     x_axis: { name: 'time (s)' }
-                    y_axis: { name: 'acceleration (m/s2)' }
+                    y_axis: { name: 'percentage (0=no press, 10=full press)' }
 

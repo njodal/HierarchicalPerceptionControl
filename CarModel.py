@@ -1,6 +1,7 @@
 import numpy as np
 
 import signals as sg
+import yaml_functions as yf
 import unit_test as ut
 
 
@@ -8,7 +9,6 @@ class CarEnvironment:
     def __init__(self, control, car_name='simple', output_lag=0, slope=0.0, dt=0.1, max_steps=500):
         self.slope      = slope
         self.car_name   = car_name
-        self.car_type   = get_car_type(self.car_name)
         self.output_lag = output_lag
         self.dt         = dt
         self.control    = control
@@ -22,7 +22,7 @@ class CarEnvironment:
         :param debug:
         :return:
         """
-        car_type    = get_car_type(self.car_type)
+        car_type    = get_car_type(self.car_name)
         car_model   = CarModel(car_type, slope=self.slope, output_lag=self.output_lag)
         observation = car_model.get_state()
         ended       = False
@@ -35,8 +35,8 @@ class CarEnvironment:
                     self.control.set_reference(reference)
                     # print('set reference to: %s' % reference)
 
-            acceleration = self.control.get_action(observation, [])
-            car_model.apply_acc(acceleration, self.dt)
+            actions = self.control.get_actions(observation, [])
+            car_model.apply_actions(actions, self.dt)
             observation = car_model.get_state()
             steps += 1
             t     += self.dt
@@ -50,9 +50,12 @@ class CarEnvironment:
 
 
 class CarModel:
-    gravity = 9.8
+    gravity         = 9.8
+    acc_pedal_key   = 'acc'
+    brake_pedal_key = 'brake'
+    max_pedal_value = 10
 
-    def __init__(self, car_type, slope=0.0, friction=0.01, output_lag=0):
+    def __init__(self, car_type, slope=0.0, friction=0.1, output_lag=0):
         """
         Basic model of a car moving straight
         :param car_type: defines the static properties of the vehicle :type CarType
@@ -63,6 +66,8 @@ class CarModel:
         self.acc_values = sg.DelayedSignal(delay=self.olag)
 
         # to avoid warnings
+        self.acc_pedal   = 0
+        self.brake_pedal = 0
         self.current_pos = 0.0
         self.current_v   = 0.0
         self.current_acc = 0.0
@@ -73,21 +78,38 @@ class CarModel:
 
         self.reset()
 
-    def reset(self, pos=0.0, v=0.0, acc=0.0):
+    def reset(self, pos=0.0, v=0.0, acc=0.0, acc_pedal=0, brake_pedal=0):
         # state values
+        self.acc_pedal   = acc_pedal
+        self.brake_pedal = brake_pedal
         self.current_pos = pos
         self.current_v   = v
         self.current_acc = acc
 
-    def apply_acc(self, acc, dt=0.1):
-        self.acc_values.append(acc)
+    def apply_actions(self, actions, dt=0.1):
+        self.acc_pedal   = sg.bound_value(actions.get(self.acc_pedal_key, 0), (0, self.max_pedal_value))
+        acc              = sg.lineal_proportional_bounded(self.acc_pedal, 0, self.max_pedal_value, 0.0,
+                                                          self.car_type.max_acc)
+        self.brake_pedal = sg.bound_value(actions.get(self.brake_pedal_key, 0), (0, self.max_pedal_value))
+        brake_acc        = sg.lineal_proportional_bounded(self.brake_pedal, 0, self.max_pedal_value, 0.0,
+                                                          self.car_type.max_brake)
+        self.apply_acc(acc, brake_acc, dt=dt)
+
+    def apply_acc(self, acc, brake_acc, dt=0.1):
+        net_acc = acc - brake_acc
+        self.acc_values.append(net_acc)
         desired_acc = self.acc_values.get_value()
         if desired_acc is None:
             desired_acc = 0.0
 
-        self.current_acc  = self.car_type.valid_acc(desired_acc)
         friction_force    = self.friction * self.current_v
-        total_acc         = self.current_acc - self.slope_acc - friction_force
+        self.current_acc  = self.car_type.valid_acc(desired_acc) - friction_force
+        v1                = self.current_v + self.current_acc*dt
+        if v1 < 0.0:
+            # braking can not move vehicle backward
+            self.current_acc = - self.current_v/dt
+
+        total_acc         = self.current_acc - self.slope_acc
         desired_speed     = self.current_v + total_acc*dt
         self.current_v    = self.car_type.valid_speed(desired_speed)
         self.current_pos += self.current_v*dt
@@ -95,6 +117,19 @@ class CarModel:
 
     def get_state(self):
         return self.current_pos, self.current_v, self.current_acc
+
+    def get_actuator(self, name):
+        """
+        Returns current actuators values, useful for plotting evolution
+        :param name:
+        :return:
+        """
+        if name == self.acc_pedal_key:
+            return self.acc_pedal
+        elif name == self.brake_pedal_key:
+            return self.brake_pedal
+        else:
+            raise Exception('Actuator %s not known' % name)
 
     def set_output_lag(self, new_output_lag):
         self.olag = new_output_lag
@@ -108,17 +143,23 @@ class CarModel:
 
 
 class CarType:
-    def __init__(self, max_speed=10.0, max_reverse_speed=2.0, max_acc=5.0, max_brake=5.0):
+    name_key        = 'name'
+    max_speed_key   = 'max_speed'
+    max_acc_key     = 'max_acc'
+    max_r_speed_key = 'max_reverse_speed'
+    max_brake_key   = 'max_brake'
+
+    def __init__(self, car_spec):
         """
-        Basic model of a car moving straight
-        :param max_speed:  max speed the vehicle is capable to achieve
-        :param max_acc:    idem for acceleration
-        :param max_brake:  idem for braking deceleration
+        Car spec definition (max speed, acceleration, etc.)
+        :param car_spec:  car parameters :type dict
         """
-        self.max_reverse_speed = max_reverse_speed
-        self.max_speed         = max_speed
-        self.max_acc           = max_acc
-        self.max_brake         = max_brake
+        self.car_spec = car_spec
+        self.name              = self.car_spec.get(self.name_key, 'NoName')
+        self.max_reverse_speed = self.car_spec.get(self.max_r_speed_key, 1.0)
+        self.max_speed         = self.car_spec.get(self.max_speed_key, 1.0)
+        self.max_acc           = self.car_spec.get(self.max_acc_key, 1.0)
+        self.max_brake         = self.car_spec.get(self.max_brake_key, 1.0)
 
     def valid_acc(self, acceleration):
         return sg.bound_value(acceleration, [-self.max_brake, self.max_acc])
@@ -128,8 +169,9 @@ class CarType:
 
 
 def get_car_type(car_name):
-    # ToDo: create a def file with different car types
-    return CarType(max_speed=15.0, max_reverse_speed=2.0, max_acc=5.0, max_brake=8.0)
+    cars_file = yf.get_yaml_file('cars/cars_definition.yaml')
+    car_spec  = yf.get_record(cars_file, car_name, 'cars', 'car')
+    return CarType(car_spec)
 
 
 # tests
@@ -139,7 +181,7 @@ def test_lineal_move(acc, until_t, total_t, dt, output_lag, debug):
     t        = 0.0
     while t < total_t:
         acc1 = acc if t < until_t else 0.0
-        car.apply_acc(acc1, dt=dt)
+        car.apply_acc(acc1, 0.0, dt=dt)
         if debug:
             print('  t:%.2f %s' % (t, car))
         t += dt
