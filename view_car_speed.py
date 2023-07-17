@@ -24,12 +24,14 @@ class CarSpeedControlHost(WinForm.HostModel):
         self.kp_key                = 'p'
         self.ki_key                = 'i'
         self.kd_key                = 'd'
+        self.kg_key                = 'g'
+        self.ks_key                = 's'
         self.start_stop_key        = 'start_stop'
         self.start_stop_action_key = 'start_stop_action'
         self.graph_speed_v         = 'graph_speed'
         self.graph_speed_acc       = 'graph_acc'
 
-        self.gain_keys = [self.kp_key, self.ki_key, self.kd_key]
+        self.gain_keys = [self.kp_key, self.ki_key, self.kd_key, self.kg_key, self.ks_key]
 
         # particular data
         self.dt              = dt
@@ -47,6 +49,14 @@ class CarSpeedControlHost(WinForm.HostModel):
         initial_values[self.control_type_key] = control_type
         print('initial state:%s' % initial_values)
         super(CarSpeedControlHost, self).__init__(initial_values=initial_values)
+
+    def initialize(self):
+        conditional_controls = [self.kp_key, self.ki_key, self.kd_key, self.kg_key, self.ks_key]
+        parameters           = self.control.get_parameters()
+        for control_name in conditional_controls:
+            if control_name not in parameters:
+                screen_control = self.get_control_by_name(control_name)
+                screen_control.set_visible(False)
 
     def get_data_provider(self, figure, interval=100, min_x=0.0, max_x=10.0, data_provider=None):
         """

@@ -21,6 +21,7 @@ window:
               name:    controls
               type:    grid
               subtype: vertical
+              width:   200
               controls:
                   - control:
                       name:    olag
@@ -64,6 +65,18 @@ window:
                       type:    EditNumberSpin
                       parms:   {step: 0.1}
                       # value:   0.25
+                  - control:
+                      name:    g
+                      title:   Proportional Gain
+                      type:    EditNumberSpin
+                      parms:   {step: 0.1}
+                      # value:   1.5
+                  - control:
+                      name:    s
+                      title:   Integrative Gain
+                      type:    EditNumberSpin
+                      parms:   {step: 0.1}
+                      # value:   1.5
 
           - item:
               name: graphs

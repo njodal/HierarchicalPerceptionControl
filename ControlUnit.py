@@ -54,9 +54,6 @@ class GenericControlUnit(object):
 
         new_o = self.calc_output(new_error)
 
-        if self.debug:
-            print('o:%.3f r:%.3f p:%.3f e:%.3f' % (new_o, self.r, p, new_error))
-
         if self.max_change > 0.0:
             # output change is bounded, cannot change too much
             # old_o = self.o
@@ -68,6 +65,10 @@ class GenericControlUnit(object):
         self.o = sg.bound_value(self.o, self.bounds)
 
         self.reference_changed = False
+
+        if self.debug:
+            print('o:%.3f r:%.3f p:%.3f e:%.3f' % (self.o, self.r, p, new_error))
+
         # print('e:%s p:%s o:%s g:%s bounds:%s key:%s' % (self.e, p, self.o, self.g, self.bounds, self.key))
         return self.o
 
@@ -77,7 +78,7 @@ class GenericControlUnit(object):
         :param _:
         :return:
         """
-        pass
+        return 0.0
 
     def get_output(self, r, p, dt=0.0, bounds=None):
         """
@@ -172,10 +173,14 @@ class PID(GenericControlUnit):
         see: https://controlguru.com/integral-reset-windup-jacketing-logic-and-the-velocity-pi-form/
     """
 
-    type = 'PID'
+    type   = 'PID'
+    kp_key = 'p'
+    ki_key = 'i'
+    kd_key = 'd'
+    k_i_windup_key = 'i_windup'
 
-    def __init__(self, p=0.1, i=0.0, d=0.0, dt=0.1, bounds=(), integrator_length=20, integrator_windup=300,
-                 integrator_reset=False, max_change=0.0, min_error=0.0, key='PID', debug=False):
+    def __init__(self, p=0.1, i=0.0, d=0.0, dt=0.1, bounds=(), integrator_length=20, integrator_windup=300.0,
+                 integrator_reset=False, max_change=0.0, min_error=0.0, key='PID', params=None, debug=False):
         """
         :param p: Proportional gain
         :param i: Integrator gain
@@ -190,12 +195,19 @@ class PID(GenericControlUnit):
         :param key:
         :param debug:
         """
+        if params is None:
+            params = {}
         self.k_p = p
         self.k_i = i
         self.k_d = d
         self.i_windup          = integrator_windup
         self.integrator_length = integrator_length
         self.integrator_reset  = integrator_reset
+        if params is not None:
+            self.i_windup          = params.get(self.k_i_windup_key, self.i_windup)
+            self.integrator_length = params.get('integrator_length', self.integrator_length)
+            self.integrator_reset  = params.get('integrator_reset', self.integrator_reset)
+
         self.first_time = True
         super(PID, self).__init__(bounds=bounds, dt=dt, max_change=max_change, min_error=min_error, key=key,
                                   debug=debug)
@@ -246,30 +258,34 @@ class PID(GenericControlUnit):
             self.integrator = self.integrator_values.sum()
         else:
             self.integrator += value
-        # self.integrator = sg.bound_value(self.integrator, [-self.i_windup, self.i_windup])
+        self.integrator = sg.bound_value(self.integrator, [-self.i_windup, self.i_windup])
         if self.debug:
-            print('   i:%.3f v:%.3f (e:%.3f dt:%s, key:%s)' % (self.integrator, value, self.e, self.dt, self.key))
+            print('   integrator:%.3f v:%.3f (e:%.3f dt:%s, key:%s)' % (self.integrator, value, self.e, self.dt, self.key))
 
     def reset_specific(self):
         self.integrator        = 0.0
         self.integrator_values = sg.SignalHistory(length=self.integrator_length)
 
     def get_parameters(self):
-        return {'p': self.k_p, 'i': self.k_i, 'd': self.k_d}
+        return {self.kp_key: self.k_p, self.ki_key: self.k_i, self.kd_key: self.k_d}
 
     def set_parameters(self, parameters):
-        self.k_p = parameters.get('p', self.k_p)
-        self.k_i = parameters.get('i', self.k_i)
-        self.k_d = parameters.get('d', self.k_d)
-        self.i_windup = parameters.get('i_windup', self.i_windup)
+        self.k_p = parameters.get(self.kp_key, self.k_p)
+        self.k_i = parameters.get(self.ki_key, self.k_i)
+        self.k_d = parameters.get(self.kd_key, self.k_d)
+        self.i_windup = parameters.get(self.k_i_windup_key, self.i_windup)
 
 
 class IncrementalPID(GenericControlUnit):
     """
     Incremental PID as defined in https://d-nb.info/1208071297/34
+    Basic idea: output change is a function of error, derivative and second derivative of error
     """
 
-    type = 'IncrementalPID'
+    type   = 'IncrementalPID'
+    kp_key = 'p'
+    ki_key = 'i'
+    kd_key = 'd'
 
     def __init__(self, p=0.1, i=0.0, d=0.0, dt=0.1, bounds=(), max_change=0.0, min_error=0.0, key='PID', debug=False):
         """
@@ -320,12 +336,12 @@ class IncrementalPID(GenericControlUnit):
         self.last_last_e = 0.0
 
     def get_parameters(self):
-        return {'p': self.k_p, 'i': self.k_i, 'd': self.k_d}
+        return {self.kp_key: self.k_p, self.ki_key: self.k_i, self.kd_key: self.k_d}
 
     def set_parameters(self, parameters):
-        self.k_p = parameters.get('p', self.k_p)
-        self.k_i = parameters.get('i', self.k_i)
-        self.k_d = parameters.get('d', self.k_d)
+        self.k_p = parameters.get(self.kp_key, self.k_p)
+        self.k_i = parameters.get(self.ki_key, self.k_i)
+        self.k_d = parameters.get(self.kd_key, self.k_d)
 
 
 class P(PID):
@@ -333,16 +349,17 @@ class P(PID):
     Just a Proportional controller (it is implemented over a PID with just the proportional gain available)
     The only difference with a PID with I and D in 0.0 is the only gain that can be used in twiddle is P
     """
+    type   = 'P'
 
     def __init__(self, p=0.1, dt=0.1, bounds=(), max_change=0.0, min_error=0.0, key='P', debug=False):
         super(P, self).__init__(p=p, bounds=bounds, dt=dt, max_change=max_change, min_error=min_error, key=key,
                                 debug=debug)
 
     def get_parameters(self):
-        return {'p': self.k_p}
+        return {self.kp_key: self.k_p}
 
     def set_parameters(self, parameters):
-        self.k_p = parameters.get('p', self.k_p)
+        self.k_p = parameters.get(self.kp_key, self.k_p)
 
 
 class PCUControlUnit(GenericControlUnit):
@@ -363,14 +380,16 @@ class PCUControlUnit(GenericControlUnit):
 
     def get_output(self, reference, perception, dt=0.0, bounds=None, min_ks=0.01):
         self.e = reference - perception
+
+        # to avoid dividing by zero
         if 0.0 <= self.ks < min_ks:
             ks = min_ks
-        elif 0.0 > self.ks > - min_ks:
+        elif -min_ks < self.ks <= 0.0:
             ks = -min_ks
         else:
             ks = self.ks
 
-        self.o = self.o + (self.kg * self.e - self.o) / ks
+        self.o += (self.kg * self.e - self.o) / ks
         if len(self.bounds) > 0:
             if self.o < self.bounds[0]:
                 self.o = self.bounds[0]
@@ -500,7 +519,7 @@ class AdaptiveControlUnit:
                                                                        change))
 
     def get_parameters(self):
-        return {}
+        return {'gain': self.gain, 'past_length': self.past_length, 'learning_rate': self.learning_rate}
 
     def set_parameters(self, parameters):
         pass
@@ -521,7 +540,8 @@ def create_control(control_params):
                                  debug=control_debug)
     elif control_type == PID.type:
         gains   = control_params.get('gains')
-        control = PID(key=control_name, p=gains[0], i=gains[1], d=gains[2], bounds=control_bounds, debug=control_debug)
+        control = PID(key=control_name, p=gains[0], i=gains[1], d=gains[2], bounds=control_bounds,
+                      params=control_params, debug=control_debug)
     elif control_type == IncrementalPID.type:
         gains = control_params.get('gains')
         control = IncrementalPID(key=control_name, p=gains[0], i=gains[1], d=gains[2], bounds=control_bounds,

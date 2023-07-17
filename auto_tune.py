@@ -95,12 +95,22 @@ def twiddle(function_object, threshold=0.1, change=10.0, max_iterations=1000, go
 
 
 class AutoTuneFunction(object):
-    def __init__(self, max_iter=500):
-        self.max_iter = max_iter
-        self.total_i  = 0  # number of calls to run_function_with_parameters
+    def __init__(self, max_iter=500, threshold=0.01, change=10.0, bad_inc=2.0, mid_inc=1.05):
+        self.mid_inc   = mid_inc
+        self.bad_inc   = bad_inc
+        self.change    = change
+        self.threshold = threshold
+        self.max_iter  = max_iter
+        self.total_i   = 0  # number of calls to run_function_with_parameters
 
-    def auto_tune_with_twiddle(self, threshold=0.01, change=10.0, bad_inc=2.0, mid_inc=1.05):
-        return twiddle(self, threshold=threshold, change=change, bad_inc=bad_inc, mid_inc=mid_inc)
+    def auto_tune(self, debug=False):
+        best_error, best_p, steps = self.auto_tune_with_twiddle()
+        if debug:
+            print('   best cost:%.3f parameters:%s tries:%s' % (best_error, best_p, steps))
+        return best_p
+
+    def auto_tune_with_twiddle(self):
+        return twiddle(self, threshold=self.threshold, change=self.change, bad_inc=self.bad_inc, mid_inc=self.mid_inc)
 
     def get_parameters(self):
         return {}

@@ -6,8 +6,12 @@ general:
         call: test_positional_control
         cases:
           - case:
+              desc:   PID
+              input:  [10, 4, 0.1, 100, {type: PID, name: position, gains:[0.5, 0.0, 0.3]}, {type: PID, name: speed, gains: [2.0, 0.2, 0.0]}, True]
+              output: 9.98
+          - case:
               desc:   pcu, tuned by hand
-              input:  [10, 4, 0.1, 100, {'type':PCU, 'name':position, gains:[0.5]}, {'type':PCU, 'name':speed, gains:[2.0]}, True]
+              input:  [10, 4, 0.1, 100, {'type': PCU, 'name': position, gains:[0.5]}, {'type':PCU, 'name':speed, gains:[2.0]}, True]
               output: 9.98
           - case:
               desc:   positional control adaptive

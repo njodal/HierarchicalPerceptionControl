@@ -1,7 +1,6 @@
 from ControlUnit import create_control
-from CarModel import CarEnvironment
+from CarModel import CarEnvironment, CarModel
 import hierarchical_control as hc
-import signals as sg
 import auto_tune as at
 
 import yaml_functions as yf
@@ -21,35 +20,20 @@ class CarSpeedControl(hc.BaseHierarchicalControl):
         super(CarSpeedControl, self).__init__(speed_control, low_levels_controls=low_levels,
                                               reference=speed_reference, overshoot_gain=overshoot_gain)
 
+    def get_type(self):
+        return self.main_control.type
+
     def get_main_observation(self, observation):
         return observation[1]  # current car speed
 
     def get_actions_from_output(self, acceleration):
-        acc     = acceleration if acceleration > 0 else 0
-        brake   = - acceleration if acceleration < 0 else 0
-        actions = {'acc': acc, 'brake': brake}
-        # print('actions: %s' % actions)
-        return actions
+        return get_actions_from_acceleration(acceleration)
 
     def set_kg(self, new_value):
         self.main_control.set_kg(new_value)
 
     def set_ks(self, new_value):
         self.main_control.set_ks(new_value)
-
-
-class CarAccPedalControl(hc.BaseHierarchicalControl):
-    """
-    Control the speed of a Car changing its acceleration
-    """
-
-    def __init__(self, accelerator_control_def, overshoot_gain=1.0):
-        acc_control = create_control(accelerator_control_def)
-        super(CarAccPedalControl, self).__init__(acc_control, low_levels_controls=[], reference=0.0,
-                                                 overshoot_gain=overshoot_gain)
-
-    def get_main_observation(self, observation):
-        return observation[2]  # current car acceleration
 
 
 class AutoTuneCarSpeed(at.AutoTuneFunction):
@@ -70,12 +54,6 @@ class AutoTuneCarSpeed(at.AutoTuneFunction):
     def set_parameters(self, parameters):
         return self.control.set_parameters(parameters)
 
-    def auto_tune(self, debug=False):
-        best_err, best_p, j = self.auto_tune_with_twiddle()
-        if debug:
-            print('best cost: %.2f' % best_err)
-        return best_p
-
     def run_one_episode(self, parameters):
         self.control.set_parameters(parameters)
         self.control.reset()
@@ -90,24 +68,35 @@ class AutoTuneCarSpeed(at.AutoTuneFunction):
         return cost
 
 
-class CarPositionalControl:
+class CarPositionalControl(hc.BaseHierarchicalControl):
     """
     Control the position of a Car changing its acceleration
     """
 
-    def __init__(self, position_reference, position_control_def, speed_control_def):
-        self.control_position = create_control(position_control_def)
-        self.control_speed    = create_control(speed_control_def)
+    def __init__(self, position_reference, position_control_def, speed_control_def, overshoot_gain=10.0):
+        control_position   = create_control(position_control_def)
+        self.control_speed = create_control(speed_control_def)
 
         self.position_reference = position_reference
-        self.sqr_errors         = 0.0
+        super(CarPositionalControl, self).__init__(control_position, low_levels_controls=[],
+                                                   reference=position_reference, overshoot_gain=overshoot_gain)
 
-    def get_action(self, observation):
+    def get_second_reference(self, observation):
         current_position, current_speed, _ = observation
-        self.sqr_errors += abs(self.position_reference - current_position)
-        speed_reference = self.control_position.get_output(self.position_reference, current_position)
-        acc_reference   = self.control_speed.get_output(speed_reference, current_speed)
-        return acc_reference
+        speed_reference  = self.main_control.get_output(self.reference, current_position)
+        acceleration_ref = self.control_speed.get_output(speed_reference, current_speed)
+        return acceleration_ref
+
+    def get_actions_from_output(self, acceleration):
+        return get_actions_from_acceleration(acceleration)
+
+
+def get_actions_from_acceleration(acceleration):
+    acc     = acceleration if acceleration > 0 else 0
+    brake   = - acceleration if acceleration < 0 else 0
+    actions = {CarModel.acc_pedal_key: acc, CarModel.brake_pedal_key: brake}
+    # print('actions: %s' % actions)
+    return actions
 
 
 def get_car_controller(controller_name):

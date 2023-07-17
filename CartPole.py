@@ -182,7 +182,7 @@ class AutoTuneCartPositionControl(at.AutoTuneFunction):
         self.bad_g    = not_stable_gain
         self.control  = None
         self.reset()
-        super(AutoTuneCartPositionControl, self).__init__()
+        super(AutoTuneCartPositionControl, self).__init__(threshold=0.01, change=10.0, bad_inc=2.0, mid_inc=1.05)
 
     def reset(self):
         gains = self.other_g.copy()
@@ -198,18 +198,6 @@ class AutoTuneCartPositionControl(at.AutoTuneFunction):
         if self.p_name2 in new_parameters:
             self.ks = new_parameters[self.p_name2]
         self.reset()
-
-    def auto_tune(self):
-        best_error, best_parameters, steps = self.auto_tune_with_twiddle(threshold=0.01, change=10.0, bad_inc=2.0,
-                                                                         mid_inc=1.05)
-        if self.debug:
-            print('best cost:%.3f parameters:%s tries:%s' % (best_error, best_parameters, steps))
-        self.set_parameters(best_parameters)
-        env   = GymEnv.BaseEnvironment('CartPole-v1', control=self.control, max_episode_steps=self.max_iter,
-                                       render_mode=self.render_m)
-        steps, _ = env.run_episode(initial_values=[[0, 0.0], [1, 0.0], [2, 0.0]], debug=self.debug)
-        print('    %s steps:%s' % (self.control.summary_string(), steps))
-        return best_parameters
 
     def run_function_with_parameters(self, parameters):
         self.total_i += 1
@@ -275,7 +263,14 @@ def test_autotune_pole_angle_first_gain(pole_angle_reference, kg, gains, render,
 def test_autotune_move_cart_first_gain(cart_pos_reference, max_iter, kg, ks, gains, render, debug):
     to_tune = AutoTuneCartPositionControl(kg, ks, gains, cart_pos_reference=cart_pos_reference, render=render,
                                           max_iter=max_iter, debug=debug)
-    to_tune.auto_tune()
+    best_parameters = to_tune.auto_tune()
+    to_tune.set_parameters(best_parameters)
+    render_m = 'human' if render else None
+    env = GymEnv.BaseEnvironment('CartPole-v1', control=to_tune.control, max_episode_steps=max_iter,
+                                 render_mode=render_m)
+    steps, _ = env.run_episode(initial_values=[[0, 0.0], [1, 0.0], [2, 0.0]], debug=debug)
+    print('    %s steps:%s' % (to_tune.control.summary_string(), steps))
+
     return to_tune.kg, to_tune.ks
 
 
