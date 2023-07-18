@@ -10,6 +10,12 @@ window:
         type:    Action
         action:  start_stop_animation
         tooltip: Click to start or stop the graph bellow
+    - item:
+        name:    auto_tune
+        title:   Auto tune
+        type:    Action
+        action:  auto_tune
+        tooltip: Click to automatically tune controller parameters
 
   layout:
     - item:

@@ -34,8 +34,11 @@ general:
         call: test_auto_tune_speed_control
         cases:
           - case:
-              input:  ['simple', 4, 5.0, 0.1, 50, [[0, 5]], {'type':PID, 'name':speed, gains:[1.0, 0.0, 0.0]}, False]
+              input:  ['simple', 4, 5.0, 0.1, 500, [[0, 5], [300, 2], [350, 7], [420, 3]], [], {'type':PID, 'name':speed, gains:[1.0, 0.0, 0.0]}, True]
               output: [1.71, 0.15, 0.26]
           - case:
-              input:  ['simple', 4, 5.0, 0.1, 50, [[0, 5]], {'type':IncrementalPID, 'name':speed, gains:[1.0, 0.0, 0.0]}, False]
+              input:  ['simple', 4, 5.0, 0.1, 500, [[0, 5], [300, 2], [350, 7], [400, 6], [410, 5], [420, 3]], [[100, 10], [200, -10], [300, 0]], {'type':PID, 'name':speed, gains:[1.0, 0.0, 0.0]}, False]
+              output: [1.71, 0.15, 0.26]
+          - case:
+              input:  ['simple', 4, 5.0, 0.1, 5, [[0, 5], [300, 2], [350, 7], [400, 6], [410, 5], [420, 3]], [[100, 10], [200, -10], [300, 0]], {'type':IncrementalPID, 'name':speed, gains:[1.0, 0.0, 0.0]}, False]
               output: [2.0, 0.01, 4.0]

@@ -35,6 +35,7 @@ class CarSpeedControlHost(WinForm.HostModel):
 
         # particular data
         self.dt              = dt
+        self.car_name        = car_name
         car_type             = CarMod.get_car_type(car_name)
         self.model           = CarMod.CarModel(car_type, output_lag=0)
         self.control         = CarCon.get_car_controller(control_type)
@@ -102,9 +103,33 @@ class CarSpeedControlHost(WinForm.HostModel):
         self.speed_reference.set_reference(ref_speed)        # show new reference in win
         self.speed_control.set_reference(ref_speed)          # set new reference to control
 
+    # Actions
+    def auto_tune(self):
+        self.start_stop_animation()
+        self.show_status_bar_msg('Auto tuning ...')
+        output_lag        = int(self.state[self.olag_key])
+        slope             = self.state[self.slope_key]
+        max_iter          = 500
+        reference_changes = [[0, 5], [300, 2], [350, 7], [400, 6], [410, 5], [420, 3]]
+        slope_changes     = [[100, 10], [200, -10], [300, 0]]
+        auto_tune = CarCon.AutoTuneCar(self.car_name, self.control, output_lag, reference_changes, dt=self.dt,
+                                       max_iter=max_iter, slope=slope, slope_changes=slope_changes, debug=False)
+        best_parameters = auto_tune.auto_tune(debug=False)
+        self.set_parameters(best_parameters)
+        self.start_stop_animation()
+        self.show_status_bar_msg('Done')
+
+    def set_parameters(self, new_parameters):
+        for k, v in new_parameters.items():
+            if k not in self.state:
+                continue
+            self.state[k] = v
+            self.set_control_value(k, v)
+        self.control.set_parameters(new_parameters)
+
     def start_stop_animation(self):
         """
-        Logit to start/stop the graph with only one button (who changes its title depending on the graph is
+        Logic to start/stop the graph with only one button (who changes its title depending on the graph is
         running or not_
         :return:
         """

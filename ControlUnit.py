@@ -179,7 +179,7 @@ class PID(GenericControlUnit):
     kd_key = 'd'
     k_i_windup_key = 'i_windup'
 
-    def __init__(self, p=0.1, i=0.0, d=0.0, dt=0.1, bounds=(), integrator_length=20, integrator_windup=300.0,
+    def __init__(self, p=0.1, i=0.0, d=0.0, dt=0.1, bounds=(), integrator_length=0, integrator_windup=300.0,
                  integrator_reset=False, max_change=0.0, min_error=0.0, key='PID', params=None, debug=False):
         """
         :param p: Proportional gain
@@ -253,7 +253,7 @@ class PID(GenericControlUnit):
 
         if self.integrator_reset and self.reference_changed:
             self.integrator = 0.0
-        elif self.integrator_values.get_len() > 1 and False:
+        elif self.integrator_values.get_len() > 1:
             self.integrator_values.append(value)
             self.integrator = self.integrator_values.sum()
         else:

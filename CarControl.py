@@ -36,17 +36,19 @@ class CarSpeedControl(hc.BaseHierarchicalControl):
         self.main_control.set_ks(new_value)
 
 
-class AutoTuneCarSpeed(at.AutoTuneFunction):
-    def __init__(self, car_name, control, output_lag, reference_changes, slope=0.0, dt=0.1, max_iter=500, debug=False):
+class AutoTuneCar(at.AutoTuneFunction):
+    def __init__(self, car_name, control, output_lag, reference_changes, slope=0.0, slope_changes=(), dt=0.1,
+                 max_iter=500, change=2.0, debug=False):
         self.dt                = dt
         self.output_lag        = output_lag
         self.slope             = slope
         self.control           = control
         self.car_name          = car_name
         self.reference_changes = reference_changes
+        self.slope_changes     = slope_changes
         self.debug             = debug
 
-        super(AutoTuneCarSpeed, self).__init__(max_iter=max_iter)
+        super(AutoTuneCar, self).__init__(max_iter=max_iter, change=change)
 
     def get_parameters(self):
         return self.control.get_parameters()
@@ -59,7 +61,8 @@ class AutoTuneCarSpeed(at.AutoTuneFunction):
         self.control.reset()
         env = CarEnvironment(self.control, car_name=self.car_name, output_lag=self.output_lag, slope=self.slope,
                              dt=self.dt, max_steps=self.max_iter)
-        steps, observation, cost, speed_evo = env.run_episode(reference_changes=self.reference_changes, debug=False)
+        steps, observation, cost, speed_evo = env.run_episode(reference_changes=self.reference_changes,
+                                                              slope_changes=self.slope_changes, debug=True)
         return cost, speed_evo
 
     def run_function_with_parameters(self, parameters):
@@ -115,11 +118,12 @@ def test_speed_control(speed_reference, output_lag, dt, max_steps, speed_control
     return observation[1]
 
 
-def test_auto_tune_speed_control(car_name, output_lag, slope, dt, max_iter, reference_changes, speed_control_def,
-                                 debug):
+def test_auto_tune_speed_control(car_name, output_lag, slope, dt, max_iter, reference_changes, slope_changes,
+                                 speed_control_def, debug):
     control         = CarSpeedControl(0.0, speed_control_def)
-    auto_tune       = AutoTuneCarSpeed(car_name, control, output_lag, reference_changes, dt=dt, max_iter=max_iter,
-                                       slope=slope, debug=debug)
+    first_params    = control.get_parameters()
+    auto_tune       = AutoTuneCar(car_name, control, output_lag, reference_changes, slope_changes=slope_changes,
+                                  dt=dt, max_iter=max_iter, slope=slope, debug=debug)
     best_parameters = auto_tune.auto_tune(debug=debug)
     if debug:
         show_auto_tune(car_name, output_lag, dt, reference_changes, max_iter, best_parameters, control, auto_tune)

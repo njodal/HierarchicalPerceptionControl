@@ -14,9 +14,10 @@ class CarEnvironment:
         self.control    = control
         self.max_iter   = max_steps
 
-    def run_episode(self, reference_changes=(), debug=False):
+    def run_episode(self, reference_changes=(), slope_changes=(), debug=False):
         """
         Run a feedback control loop for a number of steps
+        :param slope_changes:
         :param reference_changes: list (iter, reference) where the reference will be changed (ex: [[0, 5], [40, 0]]
                                   means at step 0 reference will be set at 5 and in step 40 will be set at 0)
         :param debug:
@@ -34,6 +35,9 @@ class CarEnvironment:
                 if i == steps:
                     self.control.set_reference(reference)
                     # print('set reference to: %s' % reference)
+            for [i, slope] in slope_changes:
+                if i == steps:
+                    car_model.set_slope(slope)
 
             actions = self.control.get_actions(observation, [])
             car_model.apply_actions(actions, self.dt)
@@ -44,8 +48,7 @@ class CarEnvironment:
             if steps > self.max_iter:
                 ended = True
         if debug:
-            print('   episode errors: %.3f for control: %s' % (self.control.sqr_errors,
-                                                               self.control.control_speed.parm_string()))
+            print('   episode cost: %.3f for control: %s' % (self.control.get_total_cost(), self.control.parm_string()))
         return steps, observation, self.control.get_total_cost(), speed_evo
 
 
