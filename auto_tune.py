@@ -121,7 +121,7 @@ class AutoTuneFunction(object):
         return cost
 
     def is_better(self, value1, value2):
-        return value1 < value2
+        return abs(value1) < abs(value2)
 
     def is_best(self, value):
         return abs(value) < 0.0001

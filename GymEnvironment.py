@@ -33,8 +33,9 @@ class BaseEnvironment(object):
             ended = terminated or truncated
             if debug:
                 # print('     step:%s obs:%s action:%s' % (steps, observation, action))
-                print('     step:%s pos:%.3f angle:%.2f action:%s' % (steps, observation[0],
-                                                                      math.degrees(observation[2]), action))
+                print('     step:%s pos:%.3f angle:%.2f action:%s err:%.3f' %
+                      (steps, observation[0], math.degrees(observation[2]), action,
+                       math.degrees(self.control.get_last_error())))
                 if terminated:
                     print('    terminated at step %s' % steps)
         return steps, observation

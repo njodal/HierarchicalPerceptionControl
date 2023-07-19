@@ -74,12 +74,6 @@ window:
                           parms:   [-5, 5, 1]      # [min_value, max_value, scale]
                           value:   0
                       - control:
-                          name:    max_angle
-                          title:   Max pole angle allowed (degrees)
-                          type:    Slider
-                          parms:   [3, 15, 1]      # [min_value, max_value, scale]
-                          value:   7
-                      - control:
                           name:    max_iter
                           title:   Number of points
                           type:    Slider
@@ -90,13 +84,19 @@ window:
                           title:   Proportional gain
                           type:    EditNumberSpin
                           parms:   {step: 0.1}
-                          value:   0.4
+                          value:   3.0
                       - control:
                           name:    ks
                           title:   Integral gain
                           type:    EditNumberSpin
-                          parms:   {step: 10, maximum: 1000}
-                          value:   1
+                          parms:   {step: 0.1, maximum: 1000}
+                          value:   1.0
+                      - control:
+                          name:    kd
+                          title:   Derivative gain
+                          type:    EditNumberSpin
+                          parms:   {step: 0.1, maximum: 1000}
+                          value:   2.5
 
                 - item:
                     name:    graph

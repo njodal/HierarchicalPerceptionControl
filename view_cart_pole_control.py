@@ -24,15 +24,10 @@ class CarPoleMoveHost(WinForm.HostModel):
         self.pos_ref_key   = 'pos_reference'
         self.kg_key        = 'kg'
         self.ks_key        = 'ks'
+        self.kd_key        = 'kd'
         self.max_iter_key  = 'max_iter'
-        self.max_angle_key = 'max_angle'
 
-        self.check1_key = 'check1'
-        self.points_key = 'points'
-        self.axis_key   = 'show_axis'
-        self.type_key   = 'graph_type'
         self.action_key = 'action'
-        self.width_key  = 'line_width'
 
         # particular data
         self.action_name        = 'Action'
@@ -55,11 +50,12 @@ class CarPoleMoveHost(WinForm.HostModel):
         :return:
         """
         angle_ref  = math.radians(self.state.get(self.angle_ref_key, 0.0))
-        first_g  = [self.state.get(self.kg_key, 1.0), self.state.get(self.ks_key, 100)]
-        gains    = [[3.0], [6.0], [0.2], [-0.1, 4.0]]
-        # gains.insert(0, first_g)
+        first_g  = [self.state.get(self.kg_key, 1.0), self.state.get(self.ks_key, 100),
+                    self.state.get(self.kd_key, 2.5)]
+        # first_g  = [86.0, 76.0, 71.0]
+        gains    = [[0.5], [2.0], [-0.05, 4.0]]  # [[6.0], [0.2], [-0.1, 4.0]]
+        gains.insert(0, first_g)
         max_iter  = self.state.get(self.max_iter_key, 1000)
-        max_angle = self.state.get(self.max_angle_key, 5)
         debug     = True
         steps, error_history, _, summary = CarPole.run_one_pole_control(angle_ref, gains, None, [], max_iter=max_iter,
                                                                         debug=debug)
@@ -110,11 +106,6 @@ class CarPoleMoveHost(WinForm.HostModel):
         value = '%s %s' % (self.action_name, self.last_action_number)
         self.set_and_refresh_control(self.action_key, value)
 
-    def on_mouse_move(self, event, ax):
-        if event.xdata is None or event.ydata is None:
-            return
-        self.show_status_bar_msg('x:%.2f y:%.2f' % (event.xdata, event.ydata))
-
     # particular code
     def open_yaml_file(self, file_name, progress_bar):
         """
@@ -150,19 +141,6 @@ class CarPoleMoveHost(WinForm.HostModel):
 
         msg = '%s saved' % file_name
         self.show_status_bar_msg(msg)
-
-    def get_graph_points(self):
-        """
-        Returns the points (x,y) to be graphed depending on the graph type and number of points
-        :return:
-        """
-        function_name    = self.state.get(self.type_key, 'None')
-        number_of_points = int(self.state.get(self.points_key, 10))
-        points, msg      = ga.graph_points_for_many_functions(function_name, number_of_points)
-        if points is None:
-            self.show_status_bar_msg('%s not implemented' % function_name)
-            points = []
-        return points
 
 
 def progress_bar_example(progress_bar, max_value=100, inc=20, sleep_time=0.2):

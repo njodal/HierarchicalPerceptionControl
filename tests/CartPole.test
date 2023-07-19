@@ -43,8 +43,8 @@ general:
         precision: 0.5
         cases:
           - case:
-              input:  [0.0, 3.0, [[0.5], [2.0], [-0.05, 4.0]], False, False]
-              output: 1.65
+              input:  [2.0, [1.0, 1.0, 1.0], [[0.5], [2.0], [-0.05, 4.0]], False, False]
+              output: [3.0, 1.0, 2.5]
 
     - test:
         call: test_autotune_move_cart_first_gain
