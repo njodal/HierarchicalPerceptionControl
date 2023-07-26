@@ -1,6 +1,6 @@
 window:
   size: [100, 50, 1000, 800]  # [start_x, start_y, width, height]
-  title: Control of a Car speed
+  title: widget of a Car speed
   status_bar: True
 
   toolbar:
@@ -15,69 +15,69 @@ window:
         title:   Auto tune
         type:    Action
         action:  auto_tune
-        tooltip: Click to automatically tune controller parameters
+        tooltip: Click to automatically tune widgetler parameters
 
   layout:
     - item:
-        name:    controls_and_figure
+        name:    widgets_and_figure
         type:    grid
         subtype: horizontal
         layout:
           - item:
-              name:    controls
+              name:    widgets
               type:    grid
               subtype: vertical
               width:   200
-              controls:
-                  - control:
+              widgets:
+                  - widget:
                       name:    olag
                       title:   Output Lag
                       type:    Slider
                       parms:   [0, 10, 1]      # [min_value, max_value, scale]
                       value:   4
                       tooltip: time it takes the system to response to a given acceleration (measured in cycles)
-                  - control:
+                  - widget:
                       name:    slope
                       title:   Road slope (degrees)
                       type:    Slider
                       parms:   [-45, 45, 1]      # [min_value, max_value, scale]
                       value:   0
                       tooltip: road slope (positive - up, negative - down)
-                  - control:
+                  - widget:
                       name:    ref_speed
                       title:   Reference Speed
                       type:    Slider
                       parms:   [0, 10, 1]      # [min_value, max_value, scale]
                       value:   5
-                  - control:
+                  - widget:
                       name:    control_type
-                      title:   Control Type
+                      title:   control Type
                       type:    Text
-                  - control:
+                  - widget:
                       name:    p
                       title:   Proportional Gain
                       type:    EditNumberSpin
                       parms:   {step: 0.1}
                       # value:   1.5
-                  - control:
+                  - widget:
                       name:    i
                       title:   Integrative Gain
                       type:    EditNumberSpin
                       parms:   {step: 0.1}
                       # value:   0.1
-                  - control:
+                  - widget:
                       name:    d
                       title:   Derivative Gain
                       type:    EditNumberSpin
                       parms:   {step: 0.1}
                       # value:   0.25
-                  - control:
+                  - widget:
                       name:    g
                       title:   Proportional Gain
                       type:    EditNumberSpin
                       parms:   {step: 0.1}
                       # value:   1.5
-                  - control:
+                  - widget:
                       name:    s
                       title:   Integrative Gain
                       type:    EditNumberSpin

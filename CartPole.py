@@ -91,7 +91,8 @@ class GymControlCartPoleAtAngle(BaseGymControl):
     def __init__(self, control_gains, debug_units=None, pole_angle_reference=0.0):
         self.k1, self.k2, self.k3, self.k4 = control_gains
         debug_flag = debug_units if len(debug_units) >= 4 else [False, False, False, False]
-        self.unit1 = PID(key='pole angle', p=self.k1[0], i=self.k1[1], d=self.k1[2], debug=debug_flag[0])
+        self.k_p, self.k_i, self.k_d = get_pid_gains(self.k1)
+        self.unit1 = PID(key='pole angle', p=self.k_p, i=self.k_i, d=self.k_d, debug=debug_flag[0])
         self.unit2 = PCUControlUnit('pole speed', control_gains[1], debug=debug_flag[1])
         self.unit3 = PCUControlUnit('cart pos',   control_gains[2], debug=debug_flag[2])
         self.unit4 = PCUControlUnit('cart speed', control_gains[3], debug=debug_flag[3])
@@ -204,6 +205,15 @@ class AutoTuneCartPositionControl(at.AutoTuneFunction):
             print('   iter: %s total error: %.3f steps: %s cost:%.3f' % (self.total_i, self.control.total_error, steps,
                                                                          cost))
         return cost
+
+
+def get_pid_gains(gains):
+    length = len(gains)
+    if length == 0:
+        raise Exception('No gains provided for PID controller')
+    else:
+        ks = [gains[i] if i < length else 0.0 for i in range(0, 3)]
+    return ks
 
 
 def run_one_move_cart(car_pos_reference, render, gains, max_iter, max_angle=5, debug=False):

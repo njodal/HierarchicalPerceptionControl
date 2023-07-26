@@ -52,12 +52,12 @@ class CarSpeedControlHost(WinForm.HostModel):
         super(CarSpeedControlHost, self).__init__(initial_values=initial_values)
 
     def initialize(self):
-        conditional_controls = [self.kp_key, self.ki_key, self.kd_key, self.kg_key, self.ks_key]
+        conditional_widgets = [self.kp_key, self.ki_key, self.kd_key, self.kg_key, self.ks_key]
         parameters           = self.control.get_parameters()
-        for control_name in conditional_controls:
-            if control_name not in parameters:
-                screen_control = self.get_control_by_name(control_name)
-                screen_control.set_visible(False)
+        for widget_name in conditional_widgets:
+            if widget_name not in parameters:
+                screen_widget = self.get_widget_by_name(widget_name)
+                screen_widget.set_visible(False)
 
     def get_data_provider(self, figure, interval=100, min_x=0.0, max_x=10.0, data_provider=None):
         """
@@ -83,9 +83,9 @@ class CarSpeedControlHost(WinForm.HostModel):
         return interval, max_points, x_bounds, data_provider1
 
     def get_current_output_lag(self):
-        return int(self.state.get(self.olag_key, 0))
+        return int(self.get_value(self.olag_key))
 
-    def control_changed(self, name, value):
+    def widget_changed(self, name, value):
         if name == self.ref_speed_key:
             self.set_references()
         elif name == self.slope_key:
@@ -99,7 +99,7 @@ class CarSpeedControlHost(WinForm.HostModel):
             self.speed_control.set_gain(name, value)
 
     def set_references(self):
-        ref_speed = self.state.get(self.ref_speed_key, 0.0)
+        ref_speed = self.get_value(self.ref_speed_key)
         self.speed_reference.set_reference(ref_speed)        # show new reference in win
         self.speed_control.set_reference(ref_speed)          # set new reference to control
 
@@ -107,8 +107,8 @@ class CarSpeedControlHost(WinForm.HostModel):
     def auto_tune(self):
         self.start_stop_animation()
         self.show_status_bar_msg('Auto tuning ...')
-        output_lag        = int(self.state[self.olag_key])
-        slope             = self.state[self.slope_key]
+        output_lag        = int(self.get_value(self.olag_key))
+        slope             = self.get_value(self.slope_key)
         max_iter          = 500
         reference_changes = [[0, 5], [300, 2], [350, 7], [400, 6], [410, 5], [420, 3]]
         slope_changes     = [[100, 10], [200, -10], [300, 0]]
@@ -121,10 +121,10 @@ class CarSpeedControlHost(WinForm.HostModel):
 
     def set_parameters(self, new_parameters):
         for k, v in new_parameters.items():
-            if k not in self.state:
+            if k not in self._state:
                 continue
-            self.state[k] = v
-            self.set_control_value(k, v)
+            self._state[k] = v
+            self.set_value(k, v)
         self.control.set_parameters(new_parameters)
 
     def start_stop_animation(self):
@@ -135,12 +135,12 @@ class CarSpeedControlHost(WinForm.HostModel):
         """
         if self.anim_is_running():
             self.stop_animation()
-            self.set_control_title(self.start_stop_key, 'Restart Animation')
-            self.set_control_title(self.start_stop_action_key, 'Restart Animation')
+            self.set_widget_title(self.start_stop_key, 'Restart Animation')
+            self.set_widget_title(self.start_stop_action_key, 'Restart Animation')
         else:
             self.start_animation()
-            self.set_control_title(self.start_stop_key, 'Pause Animation')
-            self.set_control_title(self.start_stop_action_key, 'Pause Animation')
+            self.set_widget_title(self.start_stop_key, 'Pause Animation')
+            self.set_widget_title(self.start_stop_action_key, 'Pause Animation')
 
 
 class RealTimeControlSpeedDataProvider(ga.RealTimeDataProvider):

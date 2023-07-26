@@ -69,48 +69,48 @@ window:
         subtype: vertical
         layout:
           - item:
-              name:    controls_and_figure
+              name:    widgets_and_figure
               type:    grid
               subtype: horizontal
               layout:
                 - item:
-                    name:    controls
+                    name:    widgets
                     type:    grid
                     subtype: vertical
                     width:   300
-                    desc:    panel is composed of two sides, the one at the left has controls, at the right a Figure to show a grapth
-                    controls:
-                      - control:
+                    desc:    panel is composed of two sides, the one at the left has widgets, at the right a Figure to show a grapth
+                    widgets:
+                      - widget:
                           name:    pos_reference
                           title:   Position
                           type:    Slider
                           parms:   [-5, 5, 1]      # [min_value, max_value, scale]
                           value:   2
-                      - control:
+                      - widget:
                           name:    max_angle
                           title:   Max pole angle allowed (degrees)
                           type:    Slider
                           parms:   [3, 15, 1]      # [min_value, max_value, scale]
                           value:   7
-                      - control:
+                      - widget:
                           name:    kg
                           title:   Proportional gain
                           type:    EditNumberSpin
                           parms:   {step: 0.1}
                           value:   0.4
-                      - control:
+                      - widget:
                           name:    ks
                           title:   Integral gain
                           type:    EditNumberSpin
                           parms:   {step: 10, maximum: 1000}
                           value:   1
-                      - control:
+                      - widget:
                           name:    max_iter
                           title:   Number of points
                           type:    Slider
                           parms:   [100, 10000, 1]      # [min_value, max_value, scale]
                           value:   500
-                      - control:
+                      - widget:
                           name:    redraw
                           title:   Run again
                           type:    Button

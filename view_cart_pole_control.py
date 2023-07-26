@@ -40,22 +40,22 @@ class CarPoleMoveHost(WinForm.HostModel):
         initial_values = {}  # used in case some control have an initial value programmatically
         super(CarPoleMoveHost, self).__init__(initial_values=initial_values)
 
-    def update_view(self, _, ax):
+    def update_view(self, figure, ax):
         """
         Update the figure
         Notes:
             - This method is called when any property changes or refresh() is used
-            - All form variables are in dict self.state
+            - All form variables are in dict _state
+        :param figure:
         :param ax:
         :return:
         """
-        angle_ref  = math.radians(self.state.get(self.angle_ref_key, 0.0))
-        first_g  = [self.state.get(self.kg_key, 1.0), self.state.get(self.ks_key, 100),
-                    self.state.get(self.kd_key, 2.5)]
+        angle_ref  = math.radians(self.get_value(self.angle_ref_key))
+        first_g  = [self.get_value(self.kg_key), self.get_value(self.ks_key), self.get_value(self.kd_key)]
         # first_g  = [86.0, 76.0, 71.0]
         gains    = [[0.5], [2.0], [-0.05, 4.0]]  # [[6.0], [0.2], [-0.1, 4.0]]
         gains.insert(0, first_g)
-        max_iter  = self.state.get(self.max_iter_key, 1000)
+        max_iter  = self.get_value(self.max_iter_key)
         debug     = True
         steps, error_history, _, summary = CarPole.run_one_pole_control(angle_ref, gains, None, [], max_iter=max_iter,
                                                                         debug=debug)
@@ -64,7 +64,7 @@ class CarPoleMoveHost(WinForm.HostModel):
         ga.graph_points(ax, ref_signal, scale_type='tight', x_visible=True, y_visible=True, color='Black')
         ga.graph_points(ax, errors_degrees, scale_type='tight', x_visible=True, y_visible=True)
         errors_degrees.extend(ref_signal)
-        self.resize_figure(ax, errors_degrees)
+        figure.resize_axis(errors_degrees)
 
         self.show_status_bar_msg(summary)
 
@@ -104,7 +104,7 @@ class CarPoleMoveHost(WinForm.HostModel):
     def change_action(self):
         self.last_action_number += 1
         value = '%s %s' % (self.action_name, self.last_action_number)
-        self.set_and_refresh_control(self.action_key, value)
+        self.set_and_refresh_widget(self.action_key, value)
 
     # particular code
     def open_yaml_file(self, file_name, progress_bar):
@@ -115,8 +115,7 @@ class CarPoleMoveHost(WinForm.HostModel):
         :return:
         """
         file = ya.get_yaml_file(file_name, must_exist=True, verbose=True)
-        self.state.update(file['state'])
-        print(self.state)
+        self.set_values(file['state'])
         self.refresh()
 
         # just an example of how to use the ProgressBar, no actually needed in this case
@@ -134,7 +133,7 @@ class CarPoleMoveHost(WinForm.HostModel):
         """
         record = rc.Record(file_name, dir=None, add_time_stamp=False)
         record.write_ln('version: 1')  # just to avoid warnings with editing in pycharm
-        record.write_group('state', self.state, level=0)
+        record.write_group('state', self._state, level=0)
 
         # just an example of how to use the ProgressBar, no actually needed in this case
         progress_bar_example(progress_bar, max_value=100, inc=20, sleep_time=0.2)
