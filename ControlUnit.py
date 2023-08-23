@@ -7,18 +7,20 @@ class GenericControlUnit(object):
     Abstract class to control units like PID or PUC
     """
 
-    def __init__(self, bounds=(), min_error=0.0, dt=0.1, min_dt=0.0001, max_change=0.0, key='', debug=False):
+    def __init__(self, bounds=(), min_error=0.0, dt=0.1, min_dt=0.0001, max_change=0.0, lag=0.0, key='', debug=False):
         """
         :param bounds:      min and max value for output
         :param min_error:   defines the error too small to react
         :param dt:          interval between outputs
         :param: min_dt:     minimum dt to be useful, if less than this value a dt of 0.0 is assumed
         :param max_change:  how much output can change in one cycle (0=unbounded)
+        :param lag:         expected lag the system has, used to predict perception (0 means no lag)
         :param key:         name used to recognize unit in a dictionary (useful for HCPU)
         """
         self.key        = key
         self.min_error  = min_error
         self.max_change = max_change
+        self.lag        = lag
         self.bounds     = bounds
         self.debug      = debug
         # print('  bounds for %s:%s' % (self.key, self.bounds))
@@ -27,6 +29,7 @@ class GenericControlUnit(object):
         self.o  = 0.0  # output
         self.r  = 0.0  # reference (or set point)
         self.e  = 0.0  # error: difference between reference and perception (in that order)
+        self.p  = 0.0  # perception
 
         self.dt     = dt
         self.min_dt = min_dt
@@ -35,10 +38,10 @@ class GenericControlUnit(object):
         # initialization
         self.reset()
 
-    def update(self, p, dt=0.0):
+    def update(self, new_p, dt=0.0):
         """
         Given a p (perception) updates the new o (output)
-        :param p:   new perception
+        :param new_p:   new perception
         :param dt:  interval since last perception
                       * 0.0 means caller is not providing time so the predefined one is used
                       * if > 0.0 the predefined one is also changed
@@ -48,7 +51,10 @@ class GenericControlUnit(object):
             # updates the predefined one
             self.dt = dt
 
-        new_error = self.r - p
+        p_speed    = (new_p - self.p)/self.dt
+        p_expected = new_p + p_speed*self.lag  # predictive value of p after lag (assuming speed remains the same)
+        self.p     = new_p
+        new_error  = self.r - p_expected
         if abs(new_error) < self.min_error:
             new_error = 0.0
 
@@ -67,7 +73,7 @@ class GenericControlUnit(object):
         self.reference_changed = False
 
         if self.debug:
-            print('o:%.3f r:%.3f p:%.3f e:%.3f' % (self.o, self.r, p, new_error))
+            print('o:%.3f r:%.3f p:%.3f e:%.3f' % (self.o, self.r, new_p, new_error))
 
         # print('e:%s p:%s o:%s g:%s bounds:%s key:%s' % (self.e, p, self.o, self.g, self.bounds, self.key))
         return self.o
@@ -180,7 +186,7 @@ class PID(GenericControlUnit):
     k_i_windup_key = 'i_windup'
 
     def __init__(self, p=0.1, i=0.0, d=0.0, dt=0.1, bounds=(), integrator_length=0, integrator_windup=300.0,
-                 integrator_reset=False, max_change=0.0, min_error=0.0, key='PID', params=None, debug=False):
+                 integrator_reset=False, max_change=0.0, min_error=0.0, lag=0.0, key='PID', params=None, debug=False):
         """
         :param p: Proportional gain
         :param i: Integrator gain
@@ -209,7 +215,7 @@ class PID(GenericControlUnit):
             self.integrator_reset  = params.get('integrator_reset', self.integrator_reset)
 
         self.first_time = True
-        super(PID, self).__init__(bounds=bounds, dt=dt, max_change=max_change, min_error=min_error, key=key,
+        super(PID, self).__init__(bounds=bounds, dt=dt, max_change=max_change, min_error=min_error, lag=lag, key=key,
                                   debug=debug)
 
         # there are two kind of integrators, the first one is a traditional one (just summing all values)
@@ -287,7 +293,8 @@ class IncrementalPID(GenericControlUnit):
     ki_key = 'i'
     kd_key = 'd'
 
-    def __init__(self, p=0.1, i=0.0, d=0.0, dt=0.1, bounds=(), max_change=0.0, min_error=0.0, key='PID', debug=False):
+    def __init__(self, p=0.1, i=0.0, d=0.0, dt=0.1, bounds=(), max_change=0.0, min_error=0.0, lag=0.0, key='PID',
+                 debug=False):
         """
         :param p: Proportional gain
         :param i: Integrator gain
@@ -306,8 +313,8 @@ class IncrementalPID(GenericControlUnit):
         self.last_e      = 0.0
         self.last_last_e = 0.0
         self.first_time = True
-        super(IncrementalPID, self).__init__(bounds=bounds, dt=dt, max_change=max_change, min_error=min_error, key=key,
-                                             debug=debug)
+        super(IncrementalPID, self).__init__(bounds=bounds, dt=dt, max_change=max_change, min_error=min_error, lag=lag,
+                                             key=key, debug=debug)
 
         self.p_value = 0.0
         self.i_value = 0.0
@@ -351,8 +358,8 @@ class P(PID):
     """
     type   = 'P'
 
-    def __init__(self, p=0.1, dt=0.1, bounds=(), max_change=0.0, min_error=0.0, key='P', debug=False):
-        super(P, self).__init__(p=p, bounds=bounds, dt=dt, max_change=max_change, min_error=min_error, key=key,
+    def __init__(self, p=0.1, dt=0.1, bounds=(), max_change=0.0, min_error=0.0, lag=0.0, key='P', debug=False):
+        super(P, self).__init__(p=p, bounds=bounds, dt=dt, max_change=max_change, min_error=min_error, lag=lag, key=key,
                                 debug=debug)
 
     def get_parameters(self):
@@ -372,11 +379,11 @@ class PCUControlUnit(GenericControlUnit):
     key_g = 'g'
     key_s = 's'
 
-    def __init__(self, name, gains, bounds=(), dt=0.1, max_change=0.0, min_error=0.0, debug=False):
+    def __init__(self, name, gains, bounds=(), dt=0.1, max_change=0.0, min_error=0.0, lag=0.0, debug=False):
         self.kg     = gains[0]
         self.ks     = gains[1] if len(gains) > 1 else 1.0
         super(PCUControlUnit, self).__init__(bounds=bounds, dt=dt, max_change=max_change, min_error=min_error,
-                                             key=name, debug=debug)
+                                             lag=lag, key=name, debug=debug)
 
     def get_output(self, reference, perception, dt=0.0, bounds=None, min_ks=0.01):
         self.e = reference - perception
@@ -419,14 +426,14 @@ class BangBang(GenericControlUnit):
         output can have only two values (typically On or Off)
     """
 
-    def __init__(self, bellow_value=1, above_value=0, hysteresis=0.0, key='BB'):
+    def __init__(self, bellow_value=1, above_value=0, hysteresis=0.0, lag=0.0, key='BB'):
         """
         :param bellow_value:  output when p is bellow reference
         :param above_value:   output when p is above reference
         :param hysteresis:    range from reference in which send the last output
         :param key:
         """
-        super(BangBang, self).__init__(key=key)
+        super(BangBang, self).__init__(lag=lag, key=key)
         self.bellow_value = bellow_value
         self.above_value  = above_value
         self.hysteresis   = hysteresis
@@ -534,18 +541,19 @@ def create_control(control_params):
     control_name   = control_params.get('name', 'NoName')
     control_bounds = control_params.get('bounds', [])
     control_debug  = control_params.get('debug', False)
+    control_lag    = control_params.get('lag', 0.0)
 
     if control_type == PCUControlUnit.type:
         control = PCUControlUnit(control_name, gains=control_params.get('gains'), bounds=control_bounds,
-                                 debug=control_debug)
+                                 lag=control_lag, debug=control_debug)
     elif control_type == PID.type:
         gains   = control_params.get('gains')
         control = PID(key=control_name, p=gains[0], i=gains[1], d=gains[2], bounds=control_bounds,
-                      params=control_params, debug=control_debug)
+                      params=control_params, lag=control_lag, debug=control_debug)
     elif control_type == IncrementalPID.type:
         gains = control_params.get('gains')
         control = IncrementalPID(key=control_name, p=gains[0], i=gains[1], d=gains[2], bounds=control_bounds,
-                                 debug=control_debug)
+                                 lag=control_lag, debug=control_debug)
     elif control_type == AdaptiveControlUnit.type:
         gain    = control_params.get('gain', 1.0)
         l_rate  = control_params.get('learning_rate', 0.01)

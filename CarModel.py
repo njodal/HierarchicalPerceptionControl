@@ -13,6 +13,7 @@ class CarEnvironment:
         self.dt         = dt
         self.control    = control
         self.max_iter   = max_steps
+        self.last_episode_observations = []
 
     def run_episode(self, reference_changes=(), slope_changes=(), debug=False):
         """
@@ -23,13 +24,13 @@ class CarEnvironment:
         :param debug:
         :return:
         """
+        self.last_episode_observations = []
         car_type    = get_car_type(self.car_name)
         car_model   = CarModel(car_type, slope=self.slope, output_lag=self.output_lag)
         observation = car_model.get_state()
         ended       = False
         steps       = 0
         t           = 0.0
-        speed_evo   = [[t, 0.0]]
         while not ended:
             for [i, reference] in reference_changes:
                 if i == steps:
@@ -44,12 +45,19 @@ class CarEnvironment:
             observation = car_model.get_state()
             steps += 1
             t     += self.dt
-            speed_evo.append([t, observation[1]])
+            self.last_episode_observations.append([t, observation])
             if steps > self.max_iter:
                 ended = True
         if debug:
             print('   episode cost: %.3f for control: %s' % (self.control.get_total_cost(), self.control.parm_string()))
-        return steps, observation, self.control.get_total_cost(), speed_evo
+        return steps, observation, self.control.get_total_cost()
+
+    def get_speed_evolution(self):
+        for [t, observation] in self.last_episode_observations:
+            yield [t, observation[1]]
+
+    def get_position_evolution(self):
+        return [[t, observation[0]] for [t, observation] in self.last_episode_observations]
 
 
 class CarModel:

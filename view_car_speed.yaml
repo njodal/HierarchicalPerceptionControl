@@ -1,6 +1,6 @@
 window:
   size: [100, 50, 1000, 800]  # [start_x, start_y, width, height]
-  title: widget of a Car speed
+  title: Car speed control
   status_bar: True
 
   toolbar:

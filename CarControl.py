@@ -61,12 +61,12 @@ class AutoTuneCar(at.AutoTuneFunction):
         self.control.reset()
         env = CarEnvironment(self.control, car_name=self.car_name, output_lag=self.output_lag, slope=self.slope,
                              dt=self.dt, max_steps=self.max_iter)
-        steps, observation, cost, speed_evo = env.run_episode(reference_changes=self.reference_changes,
-                                                              slope_changes=self.slope_changes, debug=True)
-        return cost, speed_evo
+        steps, observation, cost = env.run_episode(reference_changes=self.reference_changes,
+                                                   slope_changes=self.slope_changes, debug=True)
+        return cost
 
     def run_function_with_parameters(self, parameters):
-        cost, _ = self.run_one_episode(parameters)
+        cost = self.run_one_episode(parameters)
         # print('  run, parameters: %s cost: %.2f' % (parameters, cost))
         return cost
 
@@ -76,7 +76,8 @@ class CarPositionalControl(hc.BaseHierarchicalControl):
     Control the position of a Car changing its acceleration
     """
 
-    def __init__(self, position_reference, position_control_def, speed_control_def, overshoot_gain=10.0):
+    def __init__(self, position_reference, position_control_def, speed_control_def, output_lag=0.3, overshoot_gain=10.0):
+        self.output_lag    = output_lag
         control_position   = create_control(position_control_def)
         self.control_speed = create_control(speed_control_def)
 
@@ -86,7 +87,9 @@ class CarPositionalControl(hc.BaseHierarchicalControl):
 
     def get_second_reference(self, observation):
         current_position, current_speed, _ = observation
-        speed_reference  = self.main_control.get_output(self.reference, current_position)
+        current_position_expected = current_position + current_speed*self.output_lag
+        # print('position:%.2f v:%.2f new:%.2f' % (current_position, current_speed, current_position_expected))
+        speed_reference  = self.main_control.get_output(self.reference, current_position_expected)
         acceleration_ref = self.control_speed.get_output(speed_reference, current_speed)
         return acceleration_ref
 
@@ -112,7 +115,7 @@ def get_car_controller(controller_name):
 def test_speed_control(speed_reference, output_lag, dt, max_steps, speed_control_def, debug):
     control = CarSpeedControl(speed_reference, speed_control_def)
     env     = CarEnvironment(control, output_lag=output_lag, dt=dt, max_steps=max_steps)
-    steps, observation, errors, _ = env.run_episode()
+    steps, observation, errors = env.run_episode()
     if debug:
         print('speed:%.2f (ref:%.2f) at step %s (total error:%.3f)' % (observation[1], speed_reference, steps, errors))
     return observation[1]
@@ -148,20 +151,43 @@ def show_auto_tune(car_name, output_lag, dt, reference_changes, max_iter, best_p
     window.resize([[-1, -1]])
 
     # graph speed evolution
-    _, speed_evo = auto_tune.run_one_episode(best_parameters)
+    auto_tune.run_one_episode(best_parameters)
+    speed_evo = auto_tune.get_speed_evolution()
     ga.graph_points(window.ax, speed_evo, color='Red')
     window.resize(speed_evo)
 
     window.show()
 
 
-def test_positional_control(pos_reference, output_lag, dt, max_steps, position_control_def, speed_control_def, debug):
-    control = CarPositionalControl(pos_reference, position_control_def, speed_control_def)
+def test_positional_control(pos_reference, output_lag, dt, max_steps, expected_output_lag, show_window,
+                            position_control_def, speed_control_def, debug):
+    control = CarPositionalControl(pos_reference, position_control_def, speed_control_def,
+                                   output_lag=expected_output_lag)
     env     = CarEnvironment(control, output_lag=output_lag, dt=dt, max_steps=max_steps)
-    steps, observation, errors, _ = env.run_episode()
+    steps, observation, errors = env.run_episode()
     if debug:
         print('position:%.2f at step %s (total error:%.3f)' % (observation[0], steps, errors))
+    if show_window:
+        show_position_control(pos_reference, env)
     return observation[0]
+
+
+def show_position_control(pos_reference, env):
+    title = 'Position control'
+    window = WinForm.SimpleFigure(title=title, size=(5, 5), inc=1.2, adjust_size=True)
+    window.resize([[-1, -1]])
+
+    # graph position evolution
+    pos_evo = env.get_position_evolution()
+    ga.graph_points(window.ax, pos_evo, color='Red')
+    window.resize(pos_evo)
+    first_t    = pos_evo[0][0]
+    last_t     = pos_evo[-1][0]
+    ref_points = [[first_t, pos_reference], [last_t, pos_reference]]
+    ga.graph_points(window.ax, ref_points, color='Black')
+    window.resize(ref_points)
+
+    window.show()
 
 
 if __name__ == "__main__":
