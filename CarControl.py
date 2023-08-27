@@ -85,11 +85,13 @@ class CarPositionalControl(hc.BaseHierarchicalControl):
         super(CarPositionalControl, self).__init__(control_position, low_levels_controls=[],
                                                    reference=position_reference, overshoot_gain=overshoot_gain)
 
+    def set_min_max_speed(self, min_speed, max_speed):
+        self.main_control.set_bounds([min_speed, max_speed])
+
     def get_second_reference(self, observation):
         current_position, current_speed, _ = observation
-        current_position_expected = current_position + current_speed*self.output_lag
         # print('position:%.2f v:%.2f new:%.2f' % (current_position, current_speed, current_position_expected))
-        speed_reference  = self.main_control.get_output(self.reference, current_position_expected)
+        speed_reference  = self.main_control.get_output(self.reference, current_position)
         acceleration_ref = self.control_speed.get_output(speed_reference, current_speed)
         return acceleration_ref
 
@@ -101,14 +103,20 @@ def get_actions_from_acceleration(acceleration):
     acc     = acceleration if acceleration > 0 else 0
     brake   = - acceleration if acceleration < 0 else 0
     actions = {CarModel.acc_pedal_key: acc, CarModel.brake_pedal_key: brake}
-    # print('actions: %s' % actions)
+    # print('   actions: %s' % actions)
     return actions
 
 
-def get_car_controller(controller_name):
-    cars_file  = yf.get_yaml_file('cars/car_controllers.yaml')
+def get_car_speed_controller(controller_name):
+    cars_file  = yf.get_yaml_file('cars/car_speed_controllers.yaml')
     controller = yf.get_record(cars_file, controller_name, 'controllers', 'controller')
     return CarSpeedControl(0.0, controller['def'])
+
+
+def get_car_position_controllers(controller_name):
+    cars_file  = yf.get_yaml_file('cars/car_position_controllers.yaml')
+    controller = yf.get_record(cars_file, controller_name, 'controllers', 'controller')
+    return controller['pos_def'], controller['speed_def']
 
 
 # tests

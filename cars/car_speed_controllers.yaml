@@ -1,5 +1,5 @@
 general:
-    desc: list of car controllers
+    desc: list of car speed controllers
 
 controllers:
   - controller:

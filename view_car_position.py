@@ -10,7 +10,7 @@ import CarControl as CarCon
 import CarModel as CarMod
 
 
-class CarSpeedControlHost(WinForm.HostModel):
+class CarPositionControlHost(WinForm.HostModel):
     """
     Shows car speed control
     """
@@ -18,6 +18,7 @@ class CarSpeedControlHost(WinForm.HostModel):
     def __init__(self, dt=0.1, control_type='PID', car_name='simple'):
         # keys (names used in the yaml definition file)
         self.ref_speed_key         = 'ref_speed'
+        self.ref_pos_key           = 'ref_position'
         self.olag_key              = 'olag'
         self.slope_key             = 'slope'
         self.control_type_key      = 'control_type'
@@ -28,32 +29,44 @@ class CarSpeedControlHost(WinForm.HostModel):
         self.ks_key                = 's'
         self.start_stop_key        = 'start_stop'
         self.start_stop_action_key = 'start_stop_action'
+        self.graph_position        = 'graph_position'
         self.graph_speed_v         = 'graph_speed'
         self.graph_speed_acc       = 'graph_acc'
 
         self.gain_keys = [self.kp_key, self.ki_key, self.kd_key, self.kg_key, self.ks_key]
 
         # particular data
-        self.dt              = dt
-        self.car_name        = car_name
-        car_type             = CarMod.get_car_type(car_name)
-        self.model           = CarMod.CarModel(car_type, output_lag=0)
-        self.control         = CarCon.get_car_speed_controller(control_type)
-        self.speed_reference = ga.RealTimeConstantDataProvider(dt=self.dt, color='Black')
-        self.speed_control   = RealTimeControlSpeedDataProvider(self.model, self.control, color='Red')
+        self.dt             = dt
+        self.car_name       = car_name
+        car_type            = CarMod.get_car_type(car_name)
+        self.model          = CarMod.CarModel(car_type, output_lag=0)
+        pos_reference       = 10.0
+        expected_output_lag = 0.3
+        pos_control_def, speed_control_def = CarCon.get_car_position_controllers(control_type)
+        self.control_pos     = CarCon.CarPositionalControl(pos_reference, pos_control_def, speed_control_def,
+                                                           output_lag=expected_output_lag)
+        self.pos_control     = RealTimeControlPositionDataProvider(self.model, self.control_pos, color='Red')
+
+        self.pos_reference   = ga.RealTimeConstantDataProvider(dt=self.dt, color='Black')
+        self.pos_reference.set_reference(pos_reference)
+        speed_control        = self.control_pos.control_speed
+        self.speed_reference = RealTimeControlInternalDataProvider(speed_control, data_name='r', dt=self.dt,
+                                                                   color='Black')
+        self.speed_p         = RealTimeControlInternalDataProvider(speed_control, data_name='p', dt=self.dt,
+                                                                   color='Red')
         self.acc_values      = RealTimeActuatorDataProvider(self.model, self.model.acc_pedal_key, dt=self.dt,
                                                             color='Black')
         self.brake_values    = RealTimeActuatorDataProvider(self.model, self.model.brake_pedal_key, dt=self.dt,
                                                             color='Red')
 
-        initial_values = self.control.get_parameters()
+        initial_values = self.control_pos.get_parameters()
         initial_values[self.control_type_key] = control_type
         print('initial state:%s' % initial_values)
-        super(CarSpeedControlHost, self).__init__(initial_values=initial_values)
+        super(CarPositionControlHost, self).__init__(initial_values=initial_values)
 
     def initialize(self):
         conditional_widgets = [self.kp_key, self.ki_key, self.kd_key, self.kg_key, self.ks_key]
-        parameters           = self.control.get_parameters()
+        parameters           = self.control_pos.get_parameters()
         for widget_name in conditional_widgets:
             if widget_name not in parameters:
                 screen_widget = self.get_widget_by_name(widget_name)
@@ -73,8 +86,9 @@ class CarSpeedControlHost(WinForm.HostModel):
         max_points     = int(max_x/dt) + 1
         x_bounds       = [min_x, max_x]
         if figure.name == self.graph_speed_v:
-            data_provider1 = [self.speed_reference, self.speed_control]
-            self.set_references()
+            data_provider1 = [self.speed_reference, self.speed_p]
+        elif figure.name == self.graph_position:
+            data_provider1 = [self.pos_reference, self.pos_control]
         elif figure.name == self.graph_speed_acc:
             data_provider1 = [self.acc_values, self.brake_values]
         else:
@@ -86,22 +100,25 @@ class CarSpeedControlHost(WinForm.HostModel):
         return int(self.get_value(self.olag_key))
 
     def widget_changed(self, name, value):
-        if name == self.ref_speed_key:
+        if name == self.ref_pos_key:
             self.set_references()
+        elif name == self.ref_speed_key:
+            self.control_pos.set_min_max_speed(0.0, value)
         elif name == self.slope_key:
             self.model.set_slope(value)
         elif name == self.olag_key:
             self.model.set_output_lag(int(value))
         elif name in self.gain_keys:
-            # msg = '%s changed to %.3f' % (name, value)
-            # print(msg)
-            # self.show_status_bar_msg(msg)
-            self.speed_control.set_gain(name, value)
+            msg = '%s changed to %.3f' % (name, value)
+            print(msg)
+            self.show_status_bar_msg(msg)
+            self.pos_control.set_gain(name, value)
+            pass
 
     def set_references(self):
-        ref_speed = self.get_value(self.ref_speed_key)
-        self.speed_reference.set_reference(ref_speed)        # show new reference in win
-        self.speed_control.set_reference(ref_speed)          # set new reference to control
+        new_pos_reference = self.get_value(self.ref_pos_key)
+        self.pos_reference.set_reference(new_pos_reference)
+        self.control_pos.set_reference(new_pos_reference)
 
     # Actions
     def auto_tune(self):
@@ -112,7 +129,7 @@ class CarSpeedControlHost(WinForm.HostModel):
         max_iter          = 500
         reference_changes = [[0, 5], [300, 2], [350, 7], [400, 6], [410, 5], [420, 3]]
         slope_changes     = [[100, 10], [200, -10], [300, 0]]
-        auto_tune = CarCon.AutoTuneCar(self.car_name, self.control, output_lag, reference_changes, dt=self.dt,
+        auto_tune = CarCon.AutoTuneCar(self.car_name, self.control_pos, output_lag, reference_changes, dt=self.dt,
                                        max_iter=max_iter, slope=slope, slope_changes=slope_changes, debug=False)
         best_parameters = auto_tune.auto_tune(debug=False)
         self.set_parameters(best_parameters)
@@ -125,7 +142,7 @@ class CarSpeedControlHost(WinForm.HostModel):
                 continue
             self._state[k] = v
             self.set_value(k, v)
-        self.control.set_parameters(new_parameters)
+        self.control_pos.set_parameters(new_parameters)
 
     def start_stop_animation(self):
         """
@@ -143,12 +160,12 @@ class CarSpeedControlHost(WinForm.HostModel):
             self.set_widget_title(self.start_stop_action_key, 'Pause Animation')
 
 
-class RealTimeControlSpeedDataProvider(ga.RealTimeDataProvider):
-    def __init__(self, model, control, dt=0.1, reference=0.0, min_y=-1.0, max_y=15.0, color='Black'):
+class RealTimeControlPositionDataProvider(ga.RealTimeDataProvider):
+    def __init__(self, model, control, dt=0.1, reference=0.0, min_y=-1.0, max_y=25.0, color='Black'):
         self.reference = reference
         self.model     = model
         self.control   = control
-        super(RealTimeControlSpeedDataProvider, self).__init__(dt=dt, min_y=min_y, max_y=max_y, color=color)
+        super(RealTimeControlPositionDataProvider, self).__init__(dt=dt, min_y=min_y, max_y=max_y, color=color)
 
     def set_gain(self, name, value):
         self.control.set_parameters({name: value})
@@ -162,9 +179,10 @@ class RealTimeControlSpeedDataProvider(ga.RealTimeDataProvider):
         actions = self.control.get_actions(self.model.get_state(), [])
         self.model.apply_actions(actions, self.dt)
         position, speed, _ = self.model.get_state()
+        print('pos:%.2f speed:%.2f' % (position, speed))
 
         self.t += self.dt
-        return x, speed
+        return x, position
 
 
 class RealTimeActuatorDataProvider(ga.RealTimeDataProvider):
@@ -182,10 +200,32 @@ class RealTimeActuatorDataProvider(ga.RealTimeDataProvider):
         return x, value
 
 
+class RealTimeControlInternalDataProvider(ga.RealTimeDataProvider):
+    def __init__(self, control, data_name='r',  dt=0.1, min_y=-1.0, max_y=15.0, color='Black'):
+        self.control   = control
+        self.data_name = data_name
+        super(RealTimeControlInternalDataProvider, self).__init__(dt=dt, min_y=min_y, max_y=max_y, color=color)
+
+    def get_internal_data(self):
+        if self.data_name == 'r':
+            return self.control.r
+        elif self.data_name == 'p':
+            return self.control.p
+        elif self.data_name == 'o':
+            return self.control.o
+        else:
+            raise Exception('Data name %s not implemented' % self.data_name)
+
+    def get_next_values(self, i):
+        x       = self.t
+        self.t += self.dt
+        return x, self.get_internal_data()
+
+
 if __name__ == '__main__':
     app = QTAux.def_app()
     par_control_type = WinForm.get_arg_value(1, None)
     def_control_type = 'PID' if par_control_type is None else par_control_type
-    provider = CarSpeedControlHost(control_type=def_control_type)        # class to handle events
+    provider = CarPositionControlHost(control_type=def_control_type)        # class to handle events
     WinForm.run_winform(__file__, provider)
     sys.exit(app.exec_())

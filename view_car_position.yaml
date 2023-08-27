@@ -1,6 +1,6 @@
 window:
   size: [100, 50, 1000, 800]  # [start_x, start_y, width, height]
-  title: Car speed control
+  title: Car position control
   status_bar: True
 
   toolbar:
@@ -44,11 +44,17 @@ window:
                       value:   0
                       tooltip: road slope (positive - up, negative - down)
                   - widget:
+                      name:    ref_position
+                      title:   Initial Target Distance
+                      type:    Slider
+                      parms:   [0, 20, 1]      # [min_value, max_value, scale]
+                      value:   5
+                  - widget:
                       name:    ref_speed
-                      title:   Reference Speed
+                      title:   Max Speed
                       type:    Slider
                       parms:   [0, 10, 1]      # [min_value, max_value, scale]
-                      value:   5
+                      value:   10
                   - widget:
                       name:    control_type
                       title:   control Type
@@ -89,6 +95,13 @@ window:
               type: grid
               subtype: vertical
               layout:
+                - item:
+                    name:    graph_position
+                    type:    figure
+                    subtype: animation
+                    title:   Distance to Target (black=reference, red=actual)
+                    x_axis: { name: 'time (s)' }
+                    y_axis: { name: 'distance' }
                 - item:
                     name:    graph_speed
                     type:    figure

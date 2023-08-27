@@ -107,24 +107,25 @@ class CarModel:
         self.apply_acc(acc, brake_acc, dt=dt)
 
     def apply_acc(self, acc, brake_acc, dt=0.1):
-        net_acc = acc - brake_acc
-        self.acc_values.append(net_acc)
-        desired_acc = self.acc_values.get_value()
-        if desired_acc is None:
-            desired_acc = 0.0
 
-        friction_force    = self.friction * self.current_v
-        self.current_acc  = self.car_type.valid_acc(desired_acc) - friction_force
-        v1                = self.current_v + self.current_acc*dt
-        if v1 < 0.0:
-            # braking can not move vehicle backward
-            self.current_acc = - self.current_v/dt
+        self.acc_values.append([acc, brake_acc])    # store current value
+        acc_after_lag = self.acc_values.get_value()  # actual value taking in count transport lag
+        actual_acc, actual_braking_acc = acc_after_lag if acc_after_lag is not None else [0.0, 0.0]
 
-        total_acc         = self.current_acc - self.slope_acc
-        desired_speed     = self.current_v + total_acc*dt
-        self.current_v    = self.car_type.valid_speed(desired_speed)
+        valid_acc         = self.car_type.valid_acc(actual_acc)
+        forward_acc       = valid_acc - self.slope_acc                           # forces that move the vehicle
+        friction_force    = self.friction * self.current_v + actual_braking_acc  # forces that resist the movement
+        new_v             = self.current_v + forward_acc*dt
+        new_v_after_brake = new_v - np.sign(new_v)* actual_braking_acc*dt
+        if new_v_after_brake < 0.0 < new_v or new_v < 0.0 < new_v_after_brake:
+            # braking cannot change direction of movement
+            new_v_after_brake = 0.0
+
+        self.current_acc  = forward_acc - np.sign(forward_acc) * friction_force
+        self.current_v    = new_v_after_brake
         self.current_pos += self.current_v*dt
-        # print('  acc:%.2f current_acc:%.2f total_acc:%.2f' % (acc, self.current_acc, total_acc))
+        print('  acc:%s forward_acc:%.2f total_acc:%.2f slope:%.2f f:%.2f v:%.2f' %
+              (acc_after_lag, forward_acc, self.current_acc, self.slope_acc, friction_force, self.current_v))
 
     def get_state(self):
         return self.current_pos, self.current_v, self.current_acc
