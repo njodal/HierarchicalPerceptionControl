@@ -124,8 +124,8 @@ class CarModel:
         self.current_acc  = forward_acc - np.sign(forward_acc) * friction_force
         self.current_v    = new_v_after_brake
         self.current_pos += self.current_v*dt
-        print('  acc:%s forward_acc:%.2f total_acc:%.2f slope:%.2f f:%.2f v:%.2f' %
-              (acc_after_lag, forward_acc, self.current_acc, self.slope_acc, friction_force, self.current_v))
+        # print('  acc:%s forward_acc:%.2f total_acc:%.2f slope:%.2f f:%.2f v:%.2f' %
+        #      (acc_after_lag, forward_acc, self.current_acc, self.slope_acc, friction_force, self.current_v))
 
     def get_state(self):
         return self.current_pos, self.current_v, self.current_acc
