@@ -1,0 +1,69 @@
+general:
+    # Tipping example as defined in https://pythonhosted.org/scikit-fuzzy/auto_examples/plot_tipping_problem_newapi.html
+    name:        Tipping example
+    description: Given a food quality and service quality, returns the suggested tipping percentage
+    membership_colors: [red, blue, green]
+
+antecedents:
+    - variable:
+        name: food_quality
+        min:  0
+        max:  10
+        inc:  1
+        adjectives:
+            - adjective:
+                name:   poor
+                values: [0, 0, 5]   # min, medium, max
+            - adjective:
+                name:   average
+                values: [0, 5, 10]
+            - adjective:
+                name:   good
+                values: [5, 10, 10]
+    - variable:
+        name: service_quality
+        min:  0
+        max:  10
+        inc:  1
+        adjectives:
+            - adjective:
+                name:   poor
+                values: [0, 0, 5]   # min, medium, max
+            - adjective:
+                name:   average
+                values: [0, 5, 10]
+            - adjective:
+                name:   good
+                values: [5, 10, 10]
+consequents:
+    - variable:
+        name: tip
+        min:  0
+        max:  25
+        inc:  1
+        adjectives:
+            - adjective:
+                name:   low
+                values: [0, 0, 13]
+            - adjective:
+                name:   medium
+                values: [0, 13, 25]
+            - adjective:
+                name:   high
+                values: [13, 25, 25]
+
+rules:
+    - rule: 'food_quality:poor       => tip:low'
+    - rule: 'service_quality:poor    => tip:low'
+    - rule: 'service_quality:average => tip:medium'
+    - rule: 'food_quality:good       => tip:high'
+    - rule: 'service_quality:good    => tip:high'
+
+
+
+tests:
+    - test:
+        inputs:  'food_quality:6.5 service_quality:9.8'
+        comment: from paper
+        output: 20
+

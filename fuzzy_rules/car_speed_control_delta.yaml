@@ -1,0 +1,116 @@
+general:
+    name:        Car speed control changing the delta of acceleration
+    description: Keeps the speed of car in a reference values independent of any disturbance
+    result:      works pretty good without lag, but not very well with it in case of braking
+    membership_colors: [red, blue, green, blue, red]
+    output_control_delta: True   # True means output is change of output
+
+antecedents:
+    - variable:
+        name: error
+        min:  -5
+        max:  5
+        inc:  0.5
+        adjectives:
+            - adjective:
+                name:   nb   # negative big
+                values: [-5, -5, -2.5]   # min, medium, max
+            - adjective:
+                name:   ns   # negative small
+                values: [-5, -2.5, 0]
+            - adjective:
+                name:   z   # zero
+                values: [-2.5, 0, 2.5]
+            - adjective:
+                name:   ps   # positive small
+                values: [0, 2.5, 5]
+            - adjective:
+                name:   pb   # positive big
+                values: [2.5, 5, 5]
+    - variable:
+        name: delta_error
+        min:  -0.5
+        max:  0.5
+        inc:  0.05
+        adjectives:
+            - adjective:
+                name:   nb
+                values: [-0.5, -0.5, -0.4, -0.2]
+            - adjective:
+                name:   ns
+                values: [-0.4, -0.2, 0]
+            - adjective:
+                name:   z   # zero
+                values: [-0.2, 0, 0.2]
+            - adjective:
+                name:   ps
+                values: [0, 0.2, 0.4]
+            - adjective:
+                name:   pb
+                values: [0.2, 0.4, 0.5, 0.5]
+
+consequents:
+    - variable:
+        name: acceleration
+        min:  -2
+        max:   2
+        inc:   1
+        adjectives:
+            - adjective:
+                name:   nb
+                values: [-2, -2, -1]
+            - adjective:
+                name:   ns
+                values: [-2, -1, 0]
+            - adjective:
+                name:   z
+                values: [-1, 0, 1]
+            - adjective:
+                name:   ps
+                values: [0, 1, 2]
+            - adjective:
+                name:   pb
+                values: [1, 2, 2]
+
+rules:
+    # rules taken from https://sigmaland.ir/wp-content/uploads/2022/06/Sigmaland-Real-time-controlling-of-inverted-pendulum-by-fuzzy-logic.pdf
+    # but modified con favor braking to avoid overshoot in speed
+    - rule: 'error:pb, delta_error:pb => acceleration:pb'
+    - rule: 'error:pb, delta_error:ps => acceleration:pb'
+    - rule: 'error:pb, delta_error:z  => acceleration:pb'
+    - rule: 'error:pb, delta_error:ns => acceleration:ps'
+    - rule: 'error:pb, delta_error:nb => acceleration:z'
+
+    - rule: 'error:ps, delta_error:pb => acceleration:pb'
+    - rule: 'error:ps, delta_error:ps => acceleration:ps'
+    - rule: 'error:ps, delta_error:z  => acceleration:ps'
+    - rule: 'error:ps, delta_error:ns => acceleration:z'
+    - rule: 'error:ps, delta_error:nb => acceleration:ns'
+
+    - rule: 'error:z,, delta_error:pb => acceleration:ps'
+    - rule: 'error:z,, delta_error:ps => acceleration:z'    # to avoid mini oscillations in braking
+    - rule: 'error:z,, delta_error:z  => acceleration:z'
+    - rule: 'error:z,, delta_error:ns => acceleration:ns'
+    - rule: 'error:z,, delta_error:nb => acceleration:ns'
+
+    - rule: 'error:ns, delta_error:pb => acceleration:nb'
+    - rule: 'error:ns, delta_error:ps => acceleration:ns'
+    - rule: 'error:ns, delta_error:z  => acceleration:ns'
+    - rule: 'error:ns, delta_error:ns => acceleration:ns'
+    - rule: 'error:ns, delta_error:nb => acceleration:z'
+
+    - rule: 'error:nb, delta_error:pb => acceleration:nb'
+    - rule: 'error:nb, delta_error:ps => acceleration:nb'
+    - rule: 'error:nb, delta_error:z  => acceleration:nb'
+    - rule: 'error:nb, delta_error:ns => acceleration:nb'
+    - rule: 'error:nb, delta_error:nb => acceleration:nb'
+
+tests:
+    - test:
+        inputs:  'error:4,   delta_error:0'
+        comment: must accelerate
+        output: 5.0
+    - test:
+        inputs:  'error:2.4 delta_error:0'
+        comment: accelerate
+        output: 4.7

@@ -1,3 +1,4 @@
+import FuzzyControl
 import signals as sg
 import unit_test as ut
 
@@ -73,7 +74,8 @@ class GenericControlUnit(object):
         self.reference_changed = False
 
         if self.debug:
-            print('o:%.3f r:%.3f p:%.3f e:%.3f' % (self.o, self.r, new_p, new_error))
+            more = self.more_info_for_debug()
+            print('o:%.3f r:%.3f p:%.3f e:%.3f %s' % (self.o, self.r, new_p, new_error, more))
 
         # print('e:%s p:%s o:%s g:%s bounds:%s key:%s' % (self.e, p, self.o, self.g, self.bounds, self.key))
         return self.o
@@ -162,6 +164,13 @@ class GenericControlUnit(object):
         :return:
         """
         return {}
+
+    def more_info_for_debug(self):
+        """
+        Abstract method, returns particular info for debug
+        :return:
+        """
+        return ''
 
     def parm_string(self):
         """
@@ -266,7 +275,8 @@ class PID(GenericControlUnit):
             self.integrator += value
         self.integrator = sg.bound_value(self.integrator, [-self.i_windup, self.i_windup])
         if self.debug:
-            print('   integrator:%.3f v:%.3f (e:%.3f dt:%s, key:%s)' % (self.integrator, value, self.e, self.dt, self.key))
+            print('   integrator:%.3f v:%.3f (e:%.3f dt:%s, key:%s)' % (self.integrator, value, self.e, self.dt,
+                                                                        self.key))
 
     def reset_specific(self):
         self.integrator        = 0.0
@@ -532,6 +542,43 @@ class AdaptiveControlUnit:
         pass
 
 
+class FuzzyController(GenericControlUnit):
+    """
+    Implements a fuzzy controller which is defined in a yaml file
+    """
+
+    type   = 'FuzzyController'
+
+    def __init__(self, file_name, dt=0.1, bounds=(), max_change=0.0, min_error=0.0, lag=0.0, key='fuzzy', debug=False):
+        """
+        :param dt:     delta time
+        :param bounds: min and max values for output
+        :param max_change: max change output can have in one interval
+        :param min_error:  error less than this is too small to react
+        :param key:
+        :param debug:
+        """
+        self.fuzzy_controller = FuzzyControl.FuzzyControl.create_from_file(file_name)
+        self.last_e  = 0.0
+        self.delta_e = 0.0  # stored for debug
+        super(FuzzyController, self).__init__(bounds=bounds, dt=dt, max_change=max_change, min_error=min_error, lag=lag,
+                                              key=key, debug=debug)
+
+    def calc_output(self, new_error):
+        self.e        = new_error
+        self.delta_e  = self.e - self.last_e
+        out_dict      = self.fuzzy_controller.compute({'error': self.e, 'delta_error': self.delta_e})
+        defuzz_output = next(iter(out_dict.values()))  # assumed first value in dict is the corresponding output
+        self.last_e   = self.e
+        return self.o + defuzz_output if self.fuzzy_controller.delta else defuzz_output
+
+    def reset_specific(self):
+        self.last_e = 0.0
+
+    def more_info_for_debug(self):
+        return 'delta_e:%.2f' % self.delta_e
+
+
 def create_control(control_params):
     if control_params is None:
         return None
@@ -540,20 +587,21 @@ def create_control(control_params):
     control_type   = control_params['type']
     control_name   = control_params.get('name', 'NoName')
     control_bounds = control_params.get('bounds', [])
-    control_debug  = control_params.get('debug', False)
     control_lag    = control_params.get('lag', 0.0)
+    control_change = control_params.get('max_change', 0.0)
+    control_debug  = control_params.get('debug', False)
 
     if control_type == PCUControlUnit.type:
         control = PCUControlUnit(control_name, gains=control_params.get('gains'), bounds=control_bounds,
-                                 lag=control_lag, debug=control_debug)
+                                 max_change=control_change, lag=control_lag, debug=control_debug)
     elif control_type == PID.type:
         gains   = control_params.get('gains')
         control = PID(key=control_name, p=gains[0], i=gains[1], d=gains[2], bounds=control_bounds,
-                      params=control_params, lag=control_lag, debug=control_debug)
+                      params=control_params, max_change=control_change, lag=control_lag, debug=control_debug)
     elif control_type == IncrementalPID.type:
         gains = control_params.get('gains')
         control = IncrementalPID(key=control_name, p=gains[0], i=gains[1], d=gains[2], bounds=control_bounds,
-                                 lag=control_lag, debug=control_debug)
+                                 max_change=control_change, lag=control_lag, debug=control_debug)
     elif control_type == AdaptiveControlUnit.type:
         gain    = control_params.get('gain', 1.0)
         l_rate  = control_params.get('learning_rate', 0.01)
@@ -561,6 +609,10 @@ def create_control(control_params):
         length  = control_params.get('past_length', 10)
         control = AdaptiveControlUnit(control_name, gain=gain, learning_rate=l_rate, decay_rate=d_rate,
                                       past_length=length, debug=control_debug)
+    elif control_type == FuzzyController.type:
+        file_name = control_params['file_name']
+        control   = FuzzyController(file_name, bounds=control_bounds, max_change=control_change, lag=control_lag,
+                                    debug=control_debug)
     else:
         raise Exception('%s control type not implemented' % control_type)
     return control

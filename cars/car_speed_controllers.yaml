@@ -41,3 +41,13 @@ controllers:
       name: AdaptiveP
       desc: fine tuned by hand with 'simple' car
       def:  {type: AdaptiveP, name: speed, learning_rate: 0.001, decay_rate: 0.0, past_length: 20, gain: 0.1, debug: True}
+
+  - controller:
+      name: FuzzyController1
+      desc: Fuzzy Controller changing acceleration
+      def:  {type: FuzzyController, file_name: car_speed_control_direct.yaml, name: speed, lag: 0.2, max_change: 0.2, bounds: [-10, 10], debug: True}
+
+  - controller:
+      name: FuzzyController2
+      desc: Fuzzy Controller changing delta of acceleration
+      def:  {type: FuzzyController, file_name: car_speed_control_delta.yaml, name: speed, lag: 0.2, max_change: 0.6, bounds: [-10, 10], debug: True}

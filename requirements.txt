@@ -4,3 +4,4 @@ numpy~=1.24.3
 matplotlib~=3.5.2
 PyYAML~=5.3.1
 WinDeklar~=0.1.4
+scikit-fuzzy~=0.4.2

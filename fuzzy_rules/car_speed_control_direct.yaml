@@ -1,0 +1,114 @@
+general:
+    name:        Car speed control changing acceleration directly
+    description: Keeps the speed of car in a reference values independent of any disturbance changing acceleration directly
+    membership_colors: [red, blue, green, blue, red]
+    output_control_delta: False
+
+antecedents:
+    - variable:
+        name: error
+        min:  -6
+        max:  6
+        inc:  1
+        adjectives:
+            - adjective:
+                name:   nb   # negative big
+                values: [-6, -6, -4, -2]   # min, medium, max
+            - adjective:
+                name:   ns   # negative small
+                values: [-4, -2, 0]
+            - adjective:
+                name:   z   # zero
+                values: [-2, 0, 2]
+            - adjective:
+                name:   ps   # positive small
+                values: [0, 2, 4]
+            - adjective:
+                name:   pb   # positive big
+                values: [2, 4, 6, 6]
+    - variable:
+        name: delta_error
+        min:  -0.5
+        max:  0.5
+        inc:  0.1
+        adjectives:
+            - adjective:
+                name:   nb
+                values: [-0.5, -0.5, -0.4, -0.2]
+            - adjective:
+                name:   ns
+                values: [-0.4, -0.2, 0]
+            - adjective:
+                name:   z   # zero
+                values: [-0.2, 0, 0.2]
+            - adjective:
+                name:   ps
+                values: [0, 0.2, 0.4]
+            - adjective:
+                name:   pb
+                values: [0.2, 0.4, 0.5, 0.5]
+
+consequents:
+    - variable:
+        name: acceleration
+        min:  -10
+        max:   10
+        inc:   1
+        adjectives:
+            - adjective:
+                name:   nb
+                values: [-10, -10, -5]
+            - adjective:
+                name:   ns
+                values: [-10, -5, 0]
+            - adjective:
+                name:   z
+                values: [-5, 0, 5]
+            - adjective:
+                name:   ps
+                values: [0, 5, 10]
+            - adjective:
+                name:   pb
+                values: [5, 10, 10]
+
+rules:
+    - rule: 'error:pb, delta_error:pb => acceleration:pb'
+    - rule: 'error:pb, delta_error:ps => acceleration:pb'
+    - rule: 'error:pb, delta_error:z  => acceleration:ps'
+    - rule: 'error:pb, delta_error:ns => acceleration:ps'
+    - rule: 'error:pb, delta_error:nb => acceleration:z'
+
+    - rule: 'error:ps, delta_error:pb => acceleration:pb'
+    - rule: 'error:ps, delta_error:ps => acceleration:ps'
+    - rule: 'error:ps, delta_error:z  => acceleration:ps'
+    - rule: 'error:ps, delta_error:ns => acceleration:z'
+    - rule: 'error:ps, delta_error:nb => acceleration:z'
+
+    - rule: 'error:z,, delta_error:pb => acceleration:ps'
+    - rule: 'error:z,, delta_error:ps => acceleration:z'
+    - rule: 'error:z,, delta_error:z  => acceleration:z'
+    - rule: 'error:z,, delta_error:ns => acceleration:z'
+    - rule: 'error:z,, delta_error:nb => acceleration:ns'
+
+    - rule: 'error:ns, delta_error:pb => acceleration:nb'
+    - rule: 'error:ns, delta_error:ps => acceleration:ns'
+    - rule: 'error:ns, delta_error:z  => acceleration:ns'
+    - rule: 'error:ns, delta_error:ns => acceleration:z'
+    - rule: 'error:ns, delta_error:ns => acceleration:z'
+
+    - rule: 'error:nb, delta_error:pb => acceleration:nb'
+    - rule: 'error:nb, delta_error:ps => acceleration:nb'
+    - rule: 'error:nb, delta_error:z  => acceleration:ns'
+    - rule: 'error:nb, delta_error:ns => acceleration:ns'
+    - rule: 'error:nb, delta_error:nb => acceleration:z'
+
+
+tests:
+    - test:
+        inputs:  'error:4,   delta_error:0'
+        comment: must accelerate
+        output: 5.0
+    - test:
+        inputs:  'error:2.4 delta_error:0'
+        comment: accelerate
+        output: 4.7
