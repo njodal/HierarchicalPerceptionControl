@@ -11,7 +11,7 @@ import unit_test as ut
 
 class CarSpeedControl(hc.BaseHierarchicalControl):
     """
-    Control the speed of a Car changing its acceleration and braking pedals
+    Control the speed of a Car changing its accelerator and brake pedals
     """
 
     def __init__(self, speed_reference, speed_control_def, overshoot_gain=10.0):

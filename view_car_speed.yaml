@@ -94,8 +94,15 @@ window:
                     type:    figure
                     subtype: animation
                     title:   Speed (black=reference, red=actual)
-                    x_axis: { name: 'time (s)' }
-                    y_axis: { name: 'speed (m/s)' }
+                    x_axis:  { name: 'time (s)' }
+                    y_axis:  { name: 'speed (m/s)' }
+                - item:
+                    name:    graph_acc1
+                    type:    figure
+                    subtype: animation
+                    title:   Acceleration
+                    x_axis:  { name: 'time (s)' }
+                    y_axis:  { name: 'acceleration (m/s**2)' }
                 - item:
                     name:    graph_acc
                     type:    figure

@@ -30,6 +30,7 @@ class CarSpeedControlHost(WinForm.HostModel):
         self.start_stop_action_key = 'start_stop_action'
         self.graph_speed_v         = 'graph_speed'
         self.graph_speed_acc       = 'graph_acc'
+        self.graph_speed_acc1      = 'graph_acc1'
 
         self.gain_keys = [self.kp_key, self.ki_key, self.kd_key, self.kg_key, self.ks_key]
 
@@ -41,10 +42,15 @@ class CarSpeedControlHost(WinForm.HostModel):
         self.control         = CarCon.get_car_speed_controller(control_type)
         self.speed_reference = ga.RealTimeConstantDataProvider(dt=self.dt, color='Black')
         self.speed_control   = RealTimeControlSpeedDataProvider(self.model, self.control, color='Red')
-        self.acc_values      = RealTimeActuatorDataProvider(self.model, self.model.acc_pedal_key, dt=self.dt,
-                                                            color='Black')
-        self.brake_values    = RealTimeActuatorDataProvider(self.model, self.model.brake_pedal_key, dt=self.dt,
-                                                            color='Red')
+
+        self.acceleration_values = RealTimeActuatorDataProvider(self.model, self.model.acc_key, dt=self.dt, min_y=-2.0,
+                                                                max_y=2.0, color='Black')
+        min_y = -2
+        max_y = self.model.max_pedal_value - min_y
+        self.acc_values   = RealTimeActuatorDataProvider(self.model, self.model.acc_pedal_key, dt=self.dt, min_y=min_y,
+                                                         max_y=max_y, color='Black')
+        self.brake_values = RealTimeActuatorDataProvider(self.model, self.model.brake_pedal_key, dt=self.dt,
+                                                         min_y=min_y, max_y=max_y, color='Red')
 
         initial_values = self.control.get_parameters()
         initial_values[self.control_type_key] = control_type
@@ -77,6 +83,8 @@ class CarSpeedControlHost(WinForm.HostModel):
             self.set_references()
         elif figure.name == self.graph_speed_acc:
             data_provider1 = [self.acc_values, self.brake_values]
+        elif figure.name == self.graph_speed_acc1:
+            data_provider1 = [self.acceleration_values]
         else:
             raise Exception('"%s" graph name not implemented' % figure.name)
 
@@ -102,6 +110,11 @@ class CarSpeedControlHost(WinForm.HostModel):
         ref_speed = self.get_value(self.ref_speed_key)
         self.speed_reference.set_reference(ref_speed)        # show new reference in win
         self.speed_control.set_reference(ref_speed)          # set new reference to control
+
+    def on_mouse_move(self, event, ax):
+        if event.xdata is None or event.ydata is None:
+            return
+        self.show_status_bar_msg('x:%.2f y:%.2f' % (event.xdata, event.ydata))
 
     # Actions
     def auto_tune(self):
@@ -168,11 +181,9 @@ class RealTimeControlSpeedDataProvider(ga.RealTimeDataProvider):
 
 
 class RealTimeActuatorDataProvider(ga.RealTimeDataProvider):
-    def __init__(self, model, name, dt=0.1, inc=2, color='Black'):
+    def __init__(self, model, name, dt=0.1, min_y=-2.0, max_y=10.0, color='Black'):
         self.model = model
         self.name  = name
-        min_y = - inc
-        max_y = self.model.max_pedal_value + inc
         super(RealTimeActuatorDataProvider, self).__init__(dt=dt, min_y=min_y, max_y=max_y, color=color)
 
     def get_next_values(self, i):

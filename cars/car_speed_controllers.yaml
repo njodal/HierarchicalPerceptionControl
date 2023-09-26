@@ -5,11 +5,15 @@ controllers:
   - controller:
       name: PID
       desc: fine tuned by hand with 'simple' car
-      def:  {type: PID, name: speed, gains: [2.0, 0.4, 0.0], bounds: [-12, 12], i_windup: 30.0, debug: False}
+      def:  {type: PID, name: speed, gains: [2.0, 0.4, 0.0], bounds: [-10, 10], max_change: 0.0, i_windup: 30.0, debug: False}
   - controller:
       name: PID1
       desc: auto tuned with 'simple' car
-      def:  {type: PID, name: speed, gains: [2.35, 0.2, 0.2], i_windup: 30.0, debug: True}
+      def:  {type: PID, name: speed, gains: [2.35, 0.2, 0.2], max_change: 0.0, i_windup: 30.0, debug: True}
+  - controller:
+      name: PID11
+      desc: tuned by hand with max_change
+      def:  {type: PID, name: speed, gains: [1.0, 0.1, 0.0], max_change: 0.2, debug: True}
   - controller:
       name: PID2
       desc: auto tuned with 'simple' car (strange, but works)
@@ -21,8 +25,8 @@ controllers:
 
   - controller:
       name: IncrementalPID
-      desc: fine tuned by hand with 'simple' car
-      def:  {type: IncrementalPID, name: speed, gains: [2.0, 0.05, 0.0], bounds: [-12, 12], debug: True}
+      desc: fine tuned by hand with 'simple' car with max_change, works pretty well
+      def:  {type: IncrementalPID, name: speed, gains: [2.0, 0.05, 0.0], max_change: 0.2, bounds: [-12, 12], debug: True}
   - controller:
       name: IncrementalPID1
       desc: auto tuned with 'simple' car, works pretty well
