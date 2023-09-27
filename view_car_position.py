@@ -50,14 +50,12 @@ class CarPositionControlHost(WinForm.HostModel):
         self.pos_reference   = ga.RealTimeConstantDataProvider(dt=self.dt, color='Black')
         self.pos_reference.set_reference(pos_reference)
         speed_control        = self.control_pos.control_speed
-        self.speed_reference = RealTimeControlInternalDataProvider(speed_control, data_name='r', dt=self.dt,
+        self.speed_reference = RealTimeControlInternalDataProvider(speed_control, data_key='r', dt=self.dt,
                                                                    color='Black')
-        self.speed_p         = RealTimeControlInternalDataProvider(speed_control, data_name='p', dt=self.dt,
+        self.speed_p         = RealTimeControlInternalDataProvider(speed_control, data_key='p', dt=self.dt,
                                                                    color='Red')
-        self.acc_values      = RealTimeActuatorDataProvider(self.model, self.model.acc_pedal_key, dt=self.dt,
-                                                            color='Black')
-        self.brake_values    = RealTimeActuatorDataProvider(self.model, self.model.brake_pedal_key, dt=self.dt,
-                                                            color='Red')
+        self.acc_values      = self.model.get_real_time_data(self.model.acc_pedal_key, dt=self.dt, color='Black')
+        self.brake_values    = self.model.get_real_time_data(self.model.brake_pedal_key, dt=self.dt, color='Red')
 
         initial_values = self.control_pos.get_parameters()
         initial_values[self.control_type_key] = control_type
@@ -88,7 +86,7 @@ class CarPositionControlHost(WinForm.HostModel):
         if figure.name == self.graph_speed_v:
             data_provider1 = [self.speed_reference, self.speed_p]
         elif figure.name == self.graph_position:
-            data_provider1 = [self.pos_reference, self.pos_control]
+            data_provider1 = [self.pos_control]
         elif figure.name == self.graph_speed_acc:
             data_provider1 = [self.acc_values, self.brake_values]
         else:
@@ -182,39 +180,26 @@ class RealTimeControlPositionDataProvider(ga.RealTimeDataProvider):
         print('pos:%.2f speed:%.2f' % (position, speed))
 
         self.t += self.dt
-        return x, position
-
-
-class RealTimeActuatorDataProvider(ga.RealTimeDataProvider):
-    def __init__(self, model, name, dt=0.1, inc=2, color='Black'):
-        self.model = model
-        self.name  = name
-        min_y = - inc
-        max_y = self.model.max_pedal_value + inc
-        super(RealTimeActuatorDataProvider, self).__init__(dt=dt, min_y=min_y, max_y=max_y, color=color)
-
-    def get_next_values(self, i):
-        x       = self.t
-        value   = self.model.get_actuator(self.name)
-        self.t += self.dt
-        return x, value
+        return x, self.control.main_control.e
 
 
 class RealTimeControlInternalDataProvider(ga.RealTimeDataProvider):
-    def __init__(self, control, data_name='r',  dt=0.1, min_y=-1.0, max_y=15.0, color='Black'):
-        self.control   = control
-        self.data_name = data_name
+    def __init__(self, control, data_key='r', dt=0.1, min_y=-1.0, max_y=15.0, color='Black'):
+        self.control  = control
+        self.data_key = data_key
         super(RealTimeControlInternalDataProvider, self).__init__(dt=dt, min_y=min_y, max_y=max_y, color=color)
 
     def get_internal_data(self):
-        if self.data_name == 'r':
+        if self.data_key == 'r':
             return self.control.r
-        elif self.data_name == 'p':
+        elif self.data_key == 'e':
+            return self.control.e
+        elif self.data_key == 'p':
             return self.control.p
-        elif self.data_name == 'o':
+        elif self.data_key == 'o':
             return self.control.o
         else:
-            raise Exception('Data name %s not implemented' % self.data_name)
+            raise Exception('Data name %s not implemented' % self.data_key)
 
     def get_next_values(self, i):
         x       = self.t

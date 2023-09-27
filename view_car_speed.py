@@ -43,14 +43,14 @@ class CarSpeedControlHost(WinForm.HostModel):
         self.speed_reference = ga.RealTimeConstantDataProvider(dt=self.dt, color='Black')
         self.speed_control   = RealTimeControlSpeedDataProvider(self.model, self.control, color='Red')
 
-        self.acceleration_values = RealTimeActuatorDataProvider(self.model, self.model.acc_key, dt=self.dt, min_y=-2.0,
-                                                                max_y=2.0, color='Black')
+        self.acceleration_values = self.model.get_real_time_data(self.model.acc_key, dt=self.dt, min_y=-2.0,
+                                                                 max_y=2.0, color='Black')
         min_y = -2
         max_y = self.model.max_pedal_value - min_y
-        self.acc_values   = RealTimeActuatorDataProvider(self.model, self.model.acc_pedal_key, dt=self.dt, min_y=min_y,
-                                                         max_y=max_y, color='Black')
-        self.brake_values = RealTimeActuatorDataProvider(self.model, self.model.brake_pedal_key, dt=self.dt,
-                                                         min_y=min_y, max_y=max_y, color='Red')
+        self.acc_values   = self.model.get_real_time_data(self.model.acc_pedal_key, dt=self.dt, min_y=min_y,
+                                                          max_y=max_y, color='Black')
+        self.brake_values = self.model.get_real_time_data(self.model.brake_pedal_key, dt=self.dt,
+                                                          min_y=min_y, max_y=max_y, color='Red')
 
         initial_values = self.control.get_parameters()
         initial_values[self.control_type_key] = control_type
@@ -178,19 +178,6 @@ class RealTimeControlSpeedDataProvider(ga.RealTimeDataProvider):
 
         self.t += self.dt
         return x, speed
-
-
-class RealTimeActuatorDataProvider(ga.RealTimeDataProvider):
-    def __init__(self, model, name, dt=0.1, min_y=-2.0, max_y=10.0, color='Black'):
-        self.model = model
-        self.name  = name
-        super(RealTimeActuatorDataProvider, self).__init__(dt=dt, min_y=min_y, max_y=max_y, color=color)
-
-    def get_next_values(self, i):
-        x       = self.t
-        value   = self.model.get_actuator(self.name)
-        self.t += self.dt
-        return x, value
 
 
 if __name__ == '__main__':

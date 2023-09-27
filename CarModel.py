@@ -1,5 +1,6 @@
 import numpy as np
 
+import WinDeklar.graph_aux as ga
 import signals as sg
 import yaml_functions as yf
 import unit_test as ut
@@ -112,6 +113,7 @@ class CarModel:
         self.acc_values.append([acc, brake_acc])     # store current value
         acc_after_lag = self.acc_values.get_value()  # actual value taking in count transport lag
         actual_acc, actual_braking_acc = acc_after_lag if acc_after_lag is not None else [0.0, 0.0]
+        # print('  current: %.2f, %.2f  actual: %.2f, %.2f' % (acc, brake_acc, actual_acc, actual_braking_acc))
 
         valid_acc         = self.car_type.valid_acc(actual_acc)
         forward_acc       = valid_acc - self.slope_acc                           # forces that move the vehicle
@@ -145,6 +147,9 @@ class CarModel:
             return self.current_acc
         else:
             raise Exception('Actuator %s not known' % name)
+
+    def get_real_time_data(self, data_key, dt=0.1, min_y=0.0, max_y=10.0, color='Black'):
+        return RealTimeActuatorDataProvider(self, data_key, dt=dt, min_y=min_y, max_y=max_y, color=color)
 
     def set_output_lag(self, new_output_lag):
         self.olag = new_output_lag
@@ -187,6 +192,19 @@ def get_car_type(car_name):
     cars_file = yf.get_yaml_file('cars/cars_definition.yaml')
     car_spec  = yf.get_record(cars_file, car_name, 'cars', 'car')
     return CarType(car_spec)
+
+
+class RealTimeActuatorDataProvider(ga.RealTimeDataProvider):
+    def __init__(self, model, name, dt=0.1, min_y=-2.0, max_y=10.0, color='Black'):
+        self.model = model
+        self.name  = name
+        super(RealTimeActuatorDataProvider, self).__init__(dt=dt, min_y=min_y, max_y=max_y, color=color)
+
+    def get_next_values(self, i):
+        x       = self.t
+        value   = self.model.get_actuator(self.name)
+        self.t += self.dt
+        return x, value
 
 
 # tests

@@ -99,9 +99,9 @@ window:
                     name:    graph_position
                     type:    figure
                     subtype: animation
-                    title:   Distance to Target (black=reference, red=actual)
+                    title:   Distance to Target
                     x_axis: { name: 'time (s)' }
-                    y_axis: { name: 'distance' }
+                    y_axis: { name: 'distance (m)' }
                 - item:
                     name:    graph_speed
                     type:    figure
