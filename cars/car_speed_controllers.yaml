@@ -55,3 +55,8 @@ controllers:
       name: FuzzyController2
       desc: Fuzzy Controller changing delta of acceleration
       def:  {type: FuzzyController, file_name: car_speed_control_delta.yaml, name: speed, lag: 0.2, max_change: 0.6, bounds: [-10, 10], debug: True}
+
+  - controller:
+      name: FuzzyController3
+      desc: Fuzzy Controller changing delta of acceleration
+      def:  {type: FuzzyController, file_name: car_speed_control_detailed.yaml, name: speed, lag: 0.2, max_change: 0.6, bounds: [-10, 10], debug: True}

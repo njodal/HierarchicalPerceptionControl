@@ -101,6 +101,22 @@ class FuzzyControl:
             view_fuzzy_variable(axis[i], fuzzy_variable, self.colors)
         show_window(axis, self.name)
 
+    def view_fuzzy_variable(self, ax, name, value=None):
+        fuzzy_variable = self.get_fuzzy_variable(name)
+        if fuzzy_variable is None:
+            print('Fuzzy variable "%s" not found' % name)
+            return
+        view_fuzzy_variable(ax, fuzzy_variable, self.colors, value=value, set_legend=False)
+
+    def get_fuzzy_variable(self, name):
+        for a in self.control.antecedents:
+            if a.label == name:
+                return a
+        for a in self.control.consequents:
+            if a.label == name:
+                return a
+        return None
+
     @staticmethod
     def dict_string(dictionary):
         out_str = ''
@@ -112,7 +128,8 @@ class FuzzyControl:
         return out_str
 
 
-def define_fuzzy_variables(vars_config, is_antecedent):
+def define_fuzzy_variables(vars_config, is_antecedent, uniform_adjectives_key='uniform_adjectives',
+                           values_key='values'):
     fuzzy_variables = {}
     for var_data in vars_config:
         var_config = var_data['variable']
@@ -124,25 +141,47 @@ def define_fuzzy_variables(vars_config, is_antecedent):
         var_range = np.arange(min_value, max_value + inc, inc)
         fuzzy_var = ctrl.Antecedent(var_range, var_name) if is_antecedent else ctrl.Consequent(var_range, var_name)
 
-        adjectives = var_config['adjectives']
-        for adjective_data in adjectives:
-            adjective  = adjective_data['adjective']
-            adj_name   = adjective['name']
-            par_values = adjective['values']
-            values     = par_values if isinstance(par_values, list) else eval(par_values)
-            if len(values) == 3:
-                fuzzy_var[adj_name] = fuzz.trimf(fuzzy_var.universe, values)
-            elif len(values) == 4:
-                fuzzy_var[adj_name] = fuzz.trapmf(fuzzy_var.universe, values)
-            else:
-                print('error: values len (%s) not implemented' % (len(values)))
+        if uniform_adjectives_key in var_config:
+            uniform_parms = var_config[uniform_adjectives_key]
+            values    = uniform_parms.get(values_key, [])
+            points    = len(values) - 1
+            amplitude = max_value - min_value
+            increment = amplitude/points
 
-        print('  universe for %s %s' % (var_name, fuzzy_var.universe))
+            low = min_value
+            for i, adj_name in enumerate(values):
+                first_value = low - increment
+                if first_value < min_value:
+                    first_value = min_value
+                last_value = low + increment
+                if last_value > max_value:
+                    last_value = max_value
+                values = [first_value, low, last_value]
+                # print('values:%s' % values)
+                fuzzy_var[adj_name] = fuzz.trimf(fuzzy_var.universe, values)
+                low += increment
+                if low > max_value:
+                    low = max_value
+        else:
+            adjectives = var_config['adjectives']
+            for adjective_data in adjectives:
+                adjective  = adjective_data['adjective']
+                adj_name   = adjective['name']
+                par_values = adjective['values']
+                values     = par_values if isinstance(par_values, list) else eval(par_values)
+                if len(values) == 3:
+                    fuzzy_var[adj_name] = fuzz.trimf(fuzzy_var.universe, values)
+                elif len(values) == 4:
+                    fuzzy_var[adj_name] = fuzz.trapmf(fuzzy_var.universe, values)
+                else:
+                    print('error: values len (%s) not implemented' % (len(values)))
+
+        # print('  universe for %s %s' % (var_name, fuzzy_var.universe))
         fuzzy_variables[var_name] = fuzzy_var
     return fuzzy_variables
 
 
-def define_rules(rules_config, antecedents, consequents, debug=True):
+def define_rules(rules_config, antecedents, consequents, debug=False):
     """
     Returns the rules as needed
     ex:     - rule: 'error:pb, delta_error:z  => acceleration:accelerate'
@@ -236,12 +275,15 @@ def string_to_value(string):
         return string
 
 
-def view_fuzzy_variable(ax, fuzzy_variable, colors):
+def view_fuzzy_variable(ax, fuzzy_variable, colors, value=None, set_legend=True):
     for j, term in enumerate(fuzzy_variable.terms):
         color = colors[j] if j < len(colors) else 'black'
         ax.plot(fuzzy_variable.universe, fuzzy_variable[term].mf, color, linewidth=1.5, label=term)
-    ax.set_title(fuzzy_variable.label)
-    ax.legend()
+        if value is not None:
+            ax.axvline(x=value, color='Black')
+    if set_legend:
+        ax.set_title(fuzzy_variable.label)
+        ax.legend()
 
 
 def show_window(axis, name):

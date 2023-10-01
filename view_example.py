@@ -39,7 +39,7 @@ class ExampleHost(WinForm.HostModel):
         initial_values = {}  # used in case some control have an initial value programmatically
         super(ExampleHost, self).__init__(initial_values=initial_values)
 
-    def update_view(self, ax):
+    def update_view(self, figure, ax):
         """
         Update the figure
         Notes:

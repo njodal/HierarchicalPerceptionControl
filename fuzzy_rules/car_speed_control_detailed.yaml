@@ -1,0 +1,98 @@
+general:
+    name:        Car speed control changing the delta of acceleration
+    description: Keeps the speed of car in a reference values independent of any disturbance, rules from 'Speed control design for a vehicle system using fuzzy logic and PID controller'
+    result:      works well (including lag) besides with negative slope (has some undesired oscillations)
+    membership_colors: [red, orange, blue, green, blue, orange, red]
+    output_control_delta: True   # True means output is change of output
+
+antecedents:
+    - variable:
+        name: error
+        min:  -6
+        max:  6
+        inc:  1.0
+        uniform_adjectives:
+            values: [nb, nm, ns, z, ps, pm, pb]
+    - variable:
+        name: delta_error
+        min:  -0.6
+        max:  0.6
+        inc:  0.1
+        uniform_adjectives:
+            values: [nb, nm, ns, z, ps, pm, pb]
+
+consequents:
+    - variable:
+        name: acceleration
+        min:  -2.4
+        max:   2.4
+        inc:   0.1
+        uniform_adjectives:
+            values:    [nb, nm, ns, z, ps, pm, pb]
+
+rules:
+    - rule: 'error:pb, delta_error:nb => acceleration:z'
+    - rule: 'error:pb, delta_error:nm => acceleration:ps'
+    - rule: 'error:pb, delta_error:ns => acceleration:pm'
+    - rule: 'error:pb, delta_error:z  => acceleration:pb'
+    - rule: 'error:pb, delta_error:ps => acceleration:pb'
+    - rule: 'error:pb, delta_error:pm => acceleration:pb'
+    - rule: 'error:pb, delta_error:pb => acceleration:pb'
+
+    - rule: 'error:pm, delta_error:nb => acceleration:ns'
+    - rule: 'error:pm, delta_error:nm => acceleration:z'
+    - rule: 'error:pm, delta_error:ns => acceleration:ps'
+    - rule: 'error:pm, delta_error:z  => acceleration:pm'
+    - rule: 'error:pm, delta_error:ps => acceleration:pb'
+    - rule: 'error:pm, delta_error:pm => acceleration:pb'
+    - rule: 'error:pm, delta_error:pb => acceleration:pb'
+
+    - rule: 'error:ps, delta_error:nb => acceleration:nm'
+    - rule: 'error:ps, delta_error:nm => acceleration:nm'
+    - rule: 'error:ps, delta_error:ns => acceleration:z'
+    - rule: 'error:ps, delta_error:z  => acceleration:ps'
+    - rule: 'error:ps, delta_error:ps => acceleration:ps'
+    - rule: 'error:ps, delta_error:pm => acceleration:pm'
+    - rule: 'error:ps, delta_error:pb => acceleration:pb'
+
+    - rule: 'error:z, delta_error:nb => acceleration:nb'
+    - rule: 'error:z, delta_error:nm => acceleration:nm'
+    - rule: 'error:z, delta_error:ns => acceleration:ns'
+    - rule: 'error:z, delta_error:z  => acceleration:z'
+    - rule: 'error:z, delta_error:ps => acceleration:ps'
+    - rule: 'error:z, delta_error:pm => acceleration:pm'
+    - rule: 'error:z, delta_error:pb => acceleration:pb'
+
+    - rule: 'error:ns, delta_error:nb => acceleration:nb'
+    - rule: 'error:ns, delta_error:nm => acceleration:nm'
+    - rule: 'error:ns, delta_error:ns => acceleration:nm'
+    - rule: 'error:ns, delta_error:z  => acceleration:nb'
+    - rule: 'error:ns, delta_error:ps => acceleration:z'
+    - rule: 'error:ns, delta_error:pm => acceleration:nm'
+    - rule: 'error:ns, delta_error:pb => acceleration:nm'
+
+    - rule: 'error:nm, delta_error:nb => acceleration:nb'
+    - rule: 'error:nm, delta_error:nm => acceleration:nb'
+    - rule: 'error:nm, delta_error:ns => acceleration:nb'
+    - rule: 'error:nm, delta_error:z  => acceleration:nb'
+    - rule: 'error:nm, delta_error:ps => acceleration:nm'
+    - rule: 'error:nm, delta_error:pm => acceleration:z'
+    - rule: 'error:nm, delta_error:pb => acceleration:nm'
+
+    - rule: 'error:nm, delta_error:nb => acceleration:nb'
+    - rule: 'error:nm, delta_error:nm => acceleration:nb'
+    - rule: 'error:nm, delta_error:ns => acceleration:nb'
+    - rule: 'error:nm, delta_error:z  => acceleration:nb'
+    - rule: 'error:nm, delta_error:ps => acceleration:nm'
+    - rule: 'error:nm, delta_error:pm => acceleration:nm'
+    - rule: 'error:nm, delta_error:pb => acceleration:z'
+
+tests:
+    - test:
+        inputs:  'error:4,   delta_error:0'
+        comment: must accelerate
+        output: 5.0
+    - test:
+        inputs:  'error:2.4 delta_error:0'
+        comment: accelerate
+        output: 4.7

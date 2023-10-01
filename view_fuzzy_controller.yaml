@@ -1,0 +1,66 @@
+window:
+  size: [100, 50, 1000, 800]  # [start_x, start_y, width, height]
+  title: Fuzzy Controller Visualization
+  status_bar: True
+
+  layout:
+    - item:
+        name:    widgets_and_figure
+        type:    grid
+        subtype: horizontal
+        layout:
+          - item:
+              name:    widgets
+              type:    grid
+              subtype: vertical
+              width:   200
+              widgets:
+                  - widget:
+                      name:    error
+                      title:   Error
+                      type:    Slider
+                      parms:   [-60, 60, 10]      # [min_value, max_value, scale]
+                      value:   0
+                      tooltip: Error (reference - perception) given to the controller
+                  - widget:
+                      name:    delta_error
+                      title:   Error Derivative
+                      type:    Slider
+                      parms:   [-60, 60, 100]      # [min_value, max_value, scale]
+                      value:   0
+                      tooltip: Derivative of the Error (reference - perception) given to the controller
+                  - widget:
+                      name:    control_name
+                      title:   Control Name
+                      type:    Text
+                  - widget:
+                      name:    p
+                      title:   Proportional Gain
+                      type:    EditNumberSpin
+                      parms:   {step: 0.1}
+                      # value:   1.5
+
+          - item:
+              name: graphs
+              type: grid
+              subtype: vertical
+              layout:
+                - item:
+                    name:    error
+                    type:    figure
+                    subtype: graph
+                    title:   Error
+                    axes_limits: [-6, 6, 0, 1]
+                - item:
+                    name:    delta_error
+                    type:    figure
+                    subtype: graph
+                    title:   Error Derivative
+                    axes_limits: [-0.6, 0.6, 0, 1]
+                - item:
+                    name:    output
+                    type:    figure
+                    subtype: graph
+                    title:   Output
+                    axes_limits: [-2, 2, 0, 1]
+
