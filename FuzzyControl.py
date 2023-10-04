@@ -59,11 +59,12 @@ class FuzzyControl:
             if k in self.antecedents:
                 # print('   check for %s:%.2f (min:%.2f max:%.2f)' % (k, v, self.antecedents[k].universe[0],
                 #                                                    self.antecedents[k].universe[-1]))
-                if v < self.antecedents[k].universe[0]:
-                    input_values[k] = self.antecedents[k].universe[0]
-                    print('    min value reached in %s:%.2f (min:%.2f)' % (k, v, input_values[k]))
-                if v > self.antecedents[k].universe[-1]:
-                    input_values[k] = self.antecedents[k].universe[-1]
+                a_min, a_max = self.get_fuzzy_variable_min_max(k)
+                if v < a_min:
+                    input_values[k] = a_min
+                    # print('    min value reached in %s:%.2f (min:%.2f)' % (k, v, input_values[k]))
+                if v > a_max:
+                    input_values[k] = a_max
 
         self.simulation.inputs(input_values)
         self.simulation.compute()
@@ -109,13 +110,18 @@ class FuzzyControl:
         view_fuzzy_variable(ax, fuzzy_variable, self.colors, value=value, set_legend=False)
 
     def get_fuzzy_variable(self, name):
-        for a in self.control.antecedents:
-            if a.label == name:
-                return a
-        for a in self.control.consequents:
-            if a.label == name:
-                return a
-        return None
+        if name in self.antecedents:
+            return self.antecedents[name]
+        elif name in self.consequents:
+            return self.consequents[name]
+        else:
+            return None
+
+    def get_fuzzy_variable_min_max(self, key):
+        fuzzy_variable = self.get_fuzzy_variable(key)
+        if fuzzy_variable is None:
+            raise Exception('Fuzzy variable "%s" not known' % key)
+        return fuzzy_variable.universe[0], fuzzy_variable.universe[-1]
 
     @staticmethod
     def dict_string(dictionary):

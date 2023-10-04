@@ -31,24 +31,34 @@ class FuzzyControllerHost(WinForm.HostModel):
         # print('initial state:%s' % initial_values)
         super(FuzzyControllerHost, self).__init__(initial_values=initial_values)
 
+    def initialize(self):
+        """
+        Set axis limits for all fuzzy variables and graphs
+        :return:
+        """
+        for [key, scale] in [[self.error_key, 10], [self.delta_error_key, 100]]:
+            slider = self.get_widget_by_name(key)
+            if slider is None:
+                continue
+            a_min, a_max = self.fuzzy_controller.get_fuzzy_variable_min_max(key)
+            slider.set_min_max(a_min*scale, a_max*scale)
+        for graph in self.main_window.fig_views:
+            fuzzy_variable = self.fuzzy_controller.get_fuzzy_variable(graph.name)
+            if fuzzy_variable is None:
+                continue
+
     def update_view(self, figure, ax):
         error_value       = self.get_value(self.error_key)
         delta_error_value = self.get_value(self.delta_error_key)
-        output_values     = self.fuzzy_controller.compute({'error': error_value, 'delta_error': delta_error_value})
+        input_values      = {self.error_key: error_value, self.delta_error_key: delta_error_value}
+        output_values     = self.fuzzy_controller.compute(input_values)
         output_value      = output_values[self.output_key]
-        if figure.name == self.error_graph_key:
-            self.fuzzy_controller.view_fuzzy_variable(ax, self.error_key, value=error_value)
-        elif figure.name == self.delta_error_graph_key:
-            self.fuzzy_controller.view_fuzzy_variable(ax, self.delta_error_key, value=delta_error_value)
-        elif figure.name == self.output_graph_key:
-            self.fuzzy_controller.view_fuzzy_variable(ax, self.output_key, value=output_value)
-        else:
-            print('Graph %s not implemented yet' % figure.name)
-
-    def on_mouse_move(self, event, ax):
-        if event.xdata is None or event.ydata is None:
-            return
-        self.show_status_bar_msg('x:%.2f y:%.2f' % (event.xdata, event.ydata))
+        for [graph_name, key, value] in [[self.error_graph_key, self.error_key, error_value],
+                                         [self.delta_error_graph_key, self.delta_error_key, delta_error_value],
+                                         [self.output_graph_key, self.output_key, output_value]]:
+            if figure.name == graph_name:
+                self.fuzzy_controller.view_fuzzy_variable(ax, key, value=value)
+                figure.show_text([[key, '%.2f' % value]], position=[value, 0.5])
 
 
 if __name__ == '__main__':
