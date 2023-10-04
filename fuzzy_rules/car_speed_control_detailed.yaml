@@ -65,7 +65,7 @@ rules:
 
     - rule: 'error:ns, delta_error:nb => acceleration:nb'
     - rule: 'error:ns, delta_error:nm => acceleration:nm'
-    - rule: 'error:ns, delta_error:ns => acceleration:nm'
+    - rule: 'error:ns, delta_error:ns => acceleration:nb'
     - rule: 'error:ns, delta_error:z  => acceleration:nb'
     - rule: 'error:ns, delta_error:ps => acceleration:z'
     - rule: 'error:ns, delta_error:pm => acceleration:nm'
