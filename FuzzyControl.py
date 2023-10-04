@@ -55,20 +55,33 @@ class FuzzyControl:
             self.view_memberships()
 
     def compute(self, input_values):
+        """
+        Given the antecedent values returns the consequents values after applying the fuzzy rules
+        :param input_values:
+        :return:
+        """
+        self.clip_outlier_values(input_values)
+        self.simulation.inputs(input_values)
+        self.simulation.compute()
+        return self.simulation.output
+
+    def clip_outlier_values(self, input_values, small_inc=0.001):
+        """
+        Check all values are inside valid values, if not just replace with the best valid one
+        :param input_values:
+        :param small_inc:  small number to assure the input values are inside the valid values
+        :return:
+        """
         for k, v in input_values.items():
             if k in self.antecedents:
                 # print('   check for %s:%.2f (min:%.2f max:%.2f)' % (k, v, self.antecedents[k].universe[0],
                 #                                                    self.antecedents[k].universe[-1]))
                 a_min, a_max = self.get_fuzzy_variable_min_max(k)
                 if v < a_min:
-                    input_values[k] = a_min
+                    input_values[k] = a_min + small_inc
                     # print('    min value reached in %s:%.2f (min:%.2f)' % (k, v, input_values[k]))
                 if v > a_max:
-                    input_values[k] = a_max
-
-        self.simulation.inputs(input_values)
-        self.simulation.compute()
-        return self.simulation.output
+                    input_values[k] = a_max - small_inc
 
     # tests
     def add_test(self, test):
