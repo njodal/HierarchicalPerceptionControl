@@ -36,6 +36,14 @@ general:
               output: 3.0
 
     - test:
+        call: test_hc_speed_control
+        precision: 0.05
+        cases:
+          - case:
+              input:  [10, 4, 0.1, 100, 'simple_speed_control.yaml', False]
+              output: 10.0
+
+    - test:
         call: test_auto_tune_speed_control
         cases:
           - case:

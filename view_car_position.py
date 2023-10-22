@@ -49,7 +49,7 @@ class CarPositionControlHost(WinForm.HostModel):
 
         self.pos_reference   = ga.RealTimeConstantDataProvider(dt=self.dt, color='Black')
         self.pos_reference.set_reference(pos_reference)
-        speed_control        = self.control_pos.control_speed
+        speed_control        = self.control_pos.get_speed_controller()
         self.speed_reference = RealTimeControlInternalDataProvider(speed_control, data_key='r', dt=self.dt,
                                                                    color='Black')
         self.speed_p         = RealTimeControlInternalDataProvider(speed_control, data_key='p', dt=self.dt,

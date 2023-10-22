@@ -1,0 +1,52 @@
+general:
+  desc: control of lineal speed of a car with an accelerator and brake pedals
+
+references:
+  - reference:
+      name:  ref_speed
+      value: 0.0   # initial value
+
+sensors:
+  - sensor:
+      name: speed
+  - sensor:
+      name: acceleration
+
+actuators:
+  - actuator:
+      name: accelerator
+      min_value: 0
+      max_value: 100
+  - actuator:
+      name: brake
+      min_value: 0
+      max_value: 100
+
+parameters:
+  - parameter:
+      name: k_p
+      value: 2.0
+
+controls:
+  - control:
+      name:       control_speed
+      reference:  ref_speed
+      sensor:     speed
+      definition: {type: IncrementalPID, gains: [3.0, 0.01, 1.0], bounds: [-2.0, 2.0], debug: True}
+      output:     ref_acceleration
+  - control:
+      name:       control_acceleration
+      reference:  ref_acceleration
+      sensor:     acceleration
+      definition: {type: PID, gains: [1.0, 0.1, 0], bounds: [-10, 10], debug: False}
+      output:     desired_acceleration
+  - control:
+      name:       control_accelerator
+      reference:  desired_acceleration
+      definition: {type: Lineal, gain: 10.0, input_bounds: [0, 10], bounds: [0, 100], debug: False}
+      output:     accelerator
+  - control:
+      name:       control_brake
+      reference:  desired_acceleration
+      definition: {type: Lineal, gain: -10.0, input_bounds: [-10, 0], bounds: [0, 100]}
+      output:     brake

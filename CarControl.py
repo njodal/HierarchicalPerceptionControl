@@ -1,5 +1,5 @@
 from ControlUnit import create_control
-from CarModel import CarEnvironment, CarModel
+from CarModel import CarEnvironment, CarEnvironment1, CarModel
 import hierarchical_control as hc
 import auto_tune as at
 
@@ -76,13 +76,14 @@ class CarPositionalControl(hc.BaseHierarchicalControl):
     Control the position of a Car changing its acceleration
     """
 
-    def __init__(self, position_reference, position_control_def, speed_control_def, output_lag=0.3, overshoot_gain=10.0):
-        self.output_lag    = output_lag
-        control_position   = create_control(position_control_def)
-        self.control_speed = create_control(speed_control_def)
+    def __init__(self, position_reference, position_control_def, speed_control_def, output_lag=0.3,
+                 overshoot_gain=10.0):
+        self.output_lag        = output_lag
+        control_position       = create_control(position_control_def)
+        low_levels_controllers = [create_control(speed_control_def)]
 
         self.position_reference = position_reference
-        super(CarPositionalControl, self).__init__(control_position, low_levels_controls=[],
+        super(CarPositionalControl, self).__init__(control_position, low_levels_controls=low_levels_controllers,
                                                    reference=position_reference, overshoot_gain=overshoot_gain)
 
     def set_min_max_speed(self, min_speed, max_speed):
@@ -92,17 +93,20 @@ class CarPositionalControl(hc.BaseHierarchicalControl):
         current_position, current_speed, _ = observation
         # print('position:%.2f v:%.2f new:%.2f' % (current_position, current_speed, current_position_expected))
         speed_reference  = self.main_control.get_output(self.reference, current_position)
-        acceleration_ref = self.control_speed.get_output(speed_reference, current_speed)
+        acceleration_ref = self.get_speed_controller().get_output(speed_reference, current_speed)
         return acceleration_ref
 
     def get_actions_from_output(self, acceleration):
         return get_actions_from_acceleration(acceleration)
 
+    def get_speed_controller(self):
+        return self.low_levels_controls[0]
+
 
 def get_actions_from_acceleration(acceleration):
     acc     = acceleration if acceleration > 0 else 0
     brake   = - acceleration if acceleration < 0 else 0
-    actions = {CarModel.acc_pedal_key: acc, CarModel.brake_pedal_key: brake}
+    actions = {'acc': acc, 'brake': brake}
     # print('   actions: %s' % actions)
     return actions
 
@@ -127,6 +131,18 @@ def test_speed_control(speed_reference, output_lag, dt, max_steps, speed_control
     if debug:
         print('speed:%.2f (ref:%.2f) at step %s (total error:%.3f)' % (observation[1], speed_reference, steps, errors))
     return observation[1]
+
+
+def test_hc_speed_control(speed_reference, output_lag, dt, max_steps, file_name, debug, k_speed='speed',
+                          k_ref_speed='ref_speed'):
+    control = hc.HierarchicalControl(file_name, dir_name='cars')
+    control.set_value(k_ref_speed, speed_reference)
+    env = CarEnvironment1(control, output_lag=output_lag, dt=dt, max_steps=max_steps)
+    steps, sensors, errors = env.run_episode()
+    if debug:
+        print('speed:%.2f (ref:%.2f) at step %s (total error:%.3f)' %
+              (sensors[k_speed], speed_reference, steps, errors))
+    return sensors[k_speed]
 
 
 def test_auto_tune_speed_control(car_name, output_lag, slope, dt, max_iter, reference_changes, slope_changes,

@@ -5,25 +5,54 @@ import unit_test as ut
 
 class GenericControlUnit(object):
     """
-    Abstract class to control units like PID or PUC
+    Abstract class to Control Units like PID or PCU
     """
+    type     = None
+    k_type   = 'type'
+    k_dt     = 'dt'
+    k_min_dt = 'min_dt'
 
-    def __init__(self, bounds=(), min_error=0.0, dt=0.1, min_dt=0.0001, max_change=0.0, lag=0.0, key='', debug=False):
+    @staticmethod
+    def get_subclass(control_unit_type, super_class):
+        for cls in super_class.__subclasses__():
+            if cls.type == control_unit_type:
+                return cls
+            cls = GenericControlUnit.get_subclass(control_unit_type, cls)
+            if cls is not None:
+                return cls
+
+        return None
+
+    @staticmethod
+    def get_class(control_unit_type):
         """
-        :param bounds:      min and max value for output
-        :param min_error:   defines the error too small to react
-        :param dt:          interval between outputs
-        :param: min_dt:     minimum dt to be useful, if less than this value a dt of 0.0 is assumed
-        :param max_change:  how much output can change in one cycle (0=unbounded)
-        :param lag:         expected lag the system has, used to predict perception (0 means no lag)
-        :param key:         name used to recognize unit in a dictionary (useful for HCPU)
+        Given a control_unit_type ('PID', 'PCU', etc.), returns the corresponding class
+        :param control_unit_type: :type String
+        :return:
         """
-        self.key        = key
-        self.min_error  = min_error
-        self.max_change = max_change
-        self.lag        = lag
-        self.bounds     = bounds
-        self.debug      = debug
+        for cls in GenericControlUnit.__subclasses__():
+            if cls.type == control_unit_type:
+                return cls
+            # ToDo: find a way to avoid using get_subclass
+            cls = GenericControlUnit.get_subclass(control_unit_type, cls)
+            if cls is not None:
+                return cls
+
+        return None
+
+    def __init__(self, control_params, dt=0.1, min_dt=0.0001, state=None):
+        """
+        :param control_params: dict with control definitions
+        :param dt:     interval between outputs
+        :param min_dt: minimum dt to be useful, if less than this value a dt of 0.0 is assumed
+        :param state:  dict which can have some parameters values
+        """
+        self.key        = control_params.get('key', 'NoName')
+        self.min_error  = control_params.get('min_error', 0.0)
+        self.max_change = control_params.get('max_change', 0.0)
+        self.lag        = control_params.get('lag', 0.0)
+        self.bounds     = control_params.get('bounds', [])
+        self.debug      = control_params.get('debug', False)
         # print('  bounds for %s:%s' % (self.key, self.bounds))
 
         # to avoid warnings
@@ -32,12 +61,15 @@ class GenericControlUnit(object):
         self.e  = 0.0  # error: difference between reference and perception (in that order)
         self.p  = 0.0  # perception
 
-        self.dt     = dt
-        self.min_dt = min_dt
+        self.dt     = control_params.get(self.k_dt, dt)
+        self.min_dt = control_params.get(self.k_min_dt, min_dt)
         self.reference_changed = True
 
         # initialization
         self.reset()
+
+        if self.debug:
+            print('%s params: %s' % (self.type, self.parm_string()))
 
     def update(self, new_p, dt=0.0):
         """
@@ -114,7 +146,11 @@ class GenericControlUnit(object):
         self.o = new_output
 
     def adjust_output(self, status):
-        # given a dict (status), adjust output if value is in dict
+        """
+        Given a dict (status), adjust output if value is in dict
+        :param status:
+        :return:
+        """
         if self.key in status:
             self.set_output(status[self.key])
 
@@ -134,7 +170,7 @@ class GenericControlUnit(object):
 
     def reset(self):
         """
-        Reset the controller
+        Reset the Controller
         :return:
         """
         self.o = 0.0
@@ -188,44 +224,33 @@ class PID(GenericControlUnit):
         see: https://controlguru.com/integral-reset-windup-jacketing-logic-and-the-velocity-pi-form/
     """
 
-    type   = 'PID'
-    kp_key = 'p'
-    ki_key = 'i'
-    kd_key = 'd'
+    type    = 'PID'
+    kp_key  = 'p'
+    ki_key  = 'i'
+    kd_key  = 'd'
+    k_gains = 'gains'
     k_i_windup_key = 'i_windup'
 
-    def __init__(self, p=0.1, i=0.0, d=0.0, dt=0.1, bounds=(), integrator_length=0, integrator_windup=300.0,
-                 integrator_reset=False, max_change=0.0, min_error=0.0, lag=0.0, key='PID', params=None, debug=False):
+    def __init__(self, control_params, integrator_length=0, integrator_windup=300.0, integrator_reset=False):
         """
-        :param p: Proportional gain
-        :param i: Integrator gain
-        :param d: Derivative gain
-        :param dt:     delta time
-        :param bounds: min and max values for output
+        Create a PID controller
         :param integrator_length: number of last values to be taken in integration
         :param integrator_windup: max value (positive and negative) the integrator can have
         :param integrator_reset:  if True means the integrator value is to 0 every time the reference values changes
-        :param max_change: max change output can have in one interval
-        :param min_error:  error less than this is too small to react
-        :param key:
-        :param debug:
         """
-        if params is None:
-            params = {}
-        self.k_p = p
-        self.k_i = i
-        self.k_d = d
-        self.i_windup          = integrator_windup
-        self.integrator_length = integrator_length
-        self.integrator_reset  = integrator_reset
-        if params is not None:
-            self.i_windup          = params.get(self.k_i_windup_key, self.i_windup)
-            self.integrator_length = params.get('integrator_length', self.integrator_length)
-            self.integrator_reset  = params.get('integrator_reset', self.integrator_reset)
+        check_mandatory_param(self.k_gains, control_params, self.type)
+
+        gains = control_params.get(self.k_gains)
+        self.k_p = gains[0]
+        self.k_i = gains[1] if len(gains) > 1 else 0.0
+        self.k_d = gains[2] if len(gains) > 2 else 0.0
+
+        self.i_windup          = control_params.get(self.k_i_windup_key, integrator_windup)
+        self.integrator_length = control_params.get('integrator_length', integrator_length)
+        self.integrator_reset  = control_params.get('integrator_reset', integrator_reset)
 
         self.first_time = True
-        super(PID, self).__init__(bounds=bounds, dt=dt, max_change=max_change, min_error=min_error, lag=lag, key=key,
-                                  debug=debug)
+        super(PID, self).__init__(control_params)
 
         # there are two kind of integrators, the first one is a traditional one (just summing all values)
         # and the second one just take in count the lasts (integrator_length) values
@@ -235,9 +260,6 @@ class PID(GenericControlUnit):
         self.p_value = 0.0
         self.i_value = 0.0
         self.d_value = 0.0
-
-        if self.debug:
-            print('PID params: %s' % self.parm_string())
 
     def calc_output(self, new_error):
         delta_error = new_error - self.e
@@ -302,36 +324,24 @@ class IncrementalPID(GenericControlUnit):
     kp_key = 'p'
     ki_key = 'i'
     kd_key = 'd'
+    k_gains = 'gains'
 
-    def __init__(self, p=0.1, i=0.0, d=0.0, dt=0.1, bounds=(), max_change=0.0, min_error=0.0, lag=0.0, key='PID',
-                 debug=False):
-        """
-        :param p: Proportional gain
-        :param i: Integrator gain
-        :param d: Derivative gain
-        :param dt:     delta time
-        :param bounds: min and max values for output
-        :param max_change: max change output can have in one interval
-        :param min_error:  error less than this is too small to react
-        :param key:
-        :param debug:
-        """
-        self.k_p = p
-        self.k_i = i
-        self.k_d = d
+    def __init__(self, control_params):
+        check_mandatory_param(self.k_gains, control_params, self.type)
+
+        gains = control_params.get(self.k_gains)
+        self.k_p = gains[0]
+        self.k_i = gains[1] if len(gains) > 1 else 0.0
+        self.k_d = gains[2] if len(gains) > 2 else 0.0
 
         self.last_e      = 0.0
         self.last_last_e = 0.0
         self.first_time = True
-        super(IncrementalPID, self).__init__(bounds=bounds, dt=dt, max_change=max_change, min_error=min_error, lag=lag,
-                                             key=key, debug=debug)
+        super(IncrementalPID, self).__init__(control_params)
 
         self.p_value = 0.0
         self.i_value = 0.0
         self.d_value = 0.0
-
-        if self.debug:
-            print('Incremental PID params: %s' % self.parm_string())
 
     def calc_output(self, new_error):
         self.e = new_error
@@ -366,11 +376,14 @@ class P(PID):
     Just a Proportional controller (it is implemented over a PID with just the proportional gain available)
     The only difference with a PID with I and D in 0.0 is the only gain that can be used in twiddle is P
     """
-    type   = 'P'
+    type = 'P'
+    k_p  = 'gain'
 
-    def __init__(self, p=0.1, dt=0.1, bounds=(), max_change=0.0, min_error=0.0, lag=0.0, key='P', debug=False):
-        super(P, self).__init__(p=p, bounds=bounds, dt=dt, max_change=max_change, min_error=min_error, lag=lag, key=key,
-                                debug=debug)
+    def __init__(self, control_params):
+        check_mandatory_param(self.k_p, control_params, self.type)
+
+        control_params[self.k_gains] = [control_params[self.k_p]]
+        super(P, self).__init__(control_params)
 
     def get_parameters(self):
         return {self.kp_key: self.k_p}
@@ -379,21 +392,23 @@ class P(PID):
         self.k_p = parameters.get(self.kp_key, self.k_p)
 
 
-class PCUControlUnit(GenericControlUnit):
+class PCU(GenericControlUnit):
     """
-    Control Unit as used in Perceptual Control Theory:
+    Perceptual Control Unit (PCU) as used in Perceptual Control Theory:
         o = o + (kg*e - o)/ks
     """
 
     type = 'PCU'
-    key_g = 'g'
-    key_s = 's'
+    k_g  = 'g'
+    k_s  = 's'
 
-    def __init__(self, name, gains, bounds=(), dt=0.1, max_change=0.0, min_error=0.0, lag=0.0, debug=False):
-        self.kg     = gains[0]
-        self.ks     = gains[1] if len(gains) > 1 else 1.0
-        super(PCUControlUnit, self).__init__(bounds=bounds, dt=dt, max_change=max_change, min_error=min_error,
-                                             lag=lag, key=name, debug=debug)
+    def __init__(self, control_params):
+        check_mandatory_param(self.k_g, control_params, self.type)
+
+        self.kg = control_params[self.k_g]
+        self.ks = control_params.get(self.k_s, 1.0)
+
+        super(PCU, self).__init__(control_params)
 
     def get_output(self, reference, perception, dt=0.0, bounds=None, min_ks=0.01):
         self.e = reference - perception
@@ -417,11 +432,11 @@ class PCUControlUnit(GenericControlUnit):
         return self.o
 
     def get_parameters(self):
-        return {self.key_g: self.kg, self.key_s: self.ks}
+        return {self.k_g: self.kg, self.k_s: self.ks}
 
     def set_parameters(self, parameters):
-        self.kg = parameters.get(self.key_g, self.kg)
-        self.ks = parameters.get(self.key_s, self.ks)
+        self.kg = parameters.get(self.k_g, self.kg)
+        self.ks = parameters.get(self.k_s, self.ks)
 
     def set_kg(self, new_kg):
         self.kg = new_kg
@@ -435,18 +450,22 @@ class BangBang(GenericControlUnit):
     BangBang controller as defined in https://en.wikipedia.org/wiki/Bang%E2%80%93bang_control
         output can have only two values (typically On or Off)
     """
+    type             = 'BangBang'
+    bellow_value_key = 'bellow_value'
+    above_value_key  = 'above_value'
+    hysteresis_key   = 'hysteresis'
 
-    def __init__(self, bellow_value=1, above_value=0, hysteresis=0.0, lag=0.0, key='BB'):
+    def __init__(self, control_params, bellow_value=1, above_value=0, hysteresis=0.0):
         """
         :param bellow_value:  output when p is bellow reference
         :param above_value:   output when p is above reference
         :param hysteresis:    range from reference in which send the last output
-        :param key:
         """
-        super(BangBang, self).__init__(lag=lag, key=key)
-        self.bellow_value = bellow_value
-        self.above_value  = above_value
-        self.hysteresis   = hysteresis
+        self.bellow_value = control_params.get(self.bellow_value_key, bellow_value)
+        self.above_value  = control_params.get(self.above_value_key, above_value)
+        self.hysteresis   = control_params.get(self.hysteresis_key, hysteresis)
+
+        super(BangBang, self).__init__(control_params)
 
     def calc_output(self, new_error):
         self.e = new_error
@@ -475,6 +494,68 @@ class BangBang(GenericControlUnit):
         self.bellow_value = parameters.get('bellow',     self.bellow_value)
         self.above_value  = parameters.get('above',      self.above_value)
         self.hysteresis   = parameters.get('hysteresis', self.hysteresis)
+
+
+class LinealControlUnit(GenericControlUnit):
+    """
+    A lineal controller: the output is a lineal function of reference
+    """
+    type       = 'Lineal'
+    k_gain     = 'gain'
+    k_i_bounds = 'input_bounds'
+
+    def __init__(self, control_params):
+        self.gain         = control_params.get(self.k_gain, 1.0)
+        self.input_bounds = control_params.get(self.k_i_bounds, [])
+        super(LinealControlUnit, self).__init__(control_params)
+
+    def update(self, new_p, dt=0.0):
+        bounded_r = sg.bound_value(self.r, self.input_bounds)
+        self.o    = sg.bound_value(self.gain*bounded_r, bounds=self.bounds)
+        if self.debug:
+            print('o:%.3f r:%.3f' % (self.o, self.r))
+        return self.o
+
+    def get_parameters(self):
+        return {self.k_gain: self.gain, self.k_i_bounds: self.input_bounds}
+
+    def set_parameters(self, parameters):
+        self.gain = parameters.get('gain', self.gain)
+
+
+class FuzzyController(GenericControlUnit):
+    """
+    Implements a fuzzy controller which is defined in a yaml file
+    """
+
+    type        = 'Fuzzy'
+    k_file_name = 'file_name'
+    k_dir_name  = 'dir'
+
+    def __init__(self, control_params, def_dir_name='fuzzy_rules'):
+        check_mandatory_param(self.k_file_name, control_params, self.type)
+
+        file_name             = control_params[self.k_file_name]
+        dir_name              = control_params.get(self.k_dir_name, def_dir_name)
+        self.fuzzy_controller = FuzzyControl.FuzzyControl.create_from_file(file_name, directory=dir_name)
+
+        self.last_e  = 0.0
+        self.delta_e = 0.0  # stored for debug
+        super(FuzzyController, self).__init__(control_params)
+
+    def calc_output(self, new_error):
+        self.e        = new_error
+        self.delta_e  = self.e - self.last_e
+        out_dict      = self.fuzzy_controller.compute({'error': self.e, 'delta_error': self.delta_e})
+        defuzz_output = next(iter(out_dict.values()))  # assumed first value in dict is the corresponding output
+        self.last_e   = self.e
+        return self.o + defuzz_output if self.fuzzy_controller.delta else defuzz_output
+
+    def reset_specific(self):
+        self.last_e = 0.0
+
+    def more_info_for_debug(self):
+        return 'delta_e:%.2f' % self.delta_e
 
 
 class AdaptiveControlUnit:
@@ -542,80 +623,24 @@ class AdaptiveControlUnit:
         pass
 
 
-class FuzzyController(GenericControlUnit):
-    """
-    Implements a fuzzy controller which is defined in a yaml file
-    """
+def check_mandatory_param(parameter_key, params, controller_type):
+    if parameter_key not in params:
+        raise Exception(missing_parameter_msg(parameter_key, controller_type))
 
-    type   = 'FuzzyController'
 
-    def __init__(self, file_name, dt=0.1, bounds=(), max_change=0.0, min_error=0.0, lag=0.0, key='fuzzy', debug=False):
-        """
-        :param dt:     delta time
-        :param bounds: min and max values for output
-        :param max_change: max change output can have in one interval
-        :param min_error:  error less than this is too small to react
-        :param key:
-        :param debug:
-        """
-        self.fuzzy_controller = FuzzyControl.FuzzyControl.create_from_file(file_name)
-        self.last_e  = 0.0
-        self.delta_e = 0.0  # stored for debug
-        super(FuzzyController, self).__init__(bounds=bounds, dt=dt, max_change=max_change, min_error=min_error, lag=lag,
-                                              key=key, debug=debug)
-
-    def calc_output(self, new_error):
-        self.e        = new_error
-        self.delta_e  = self.e - self.last_e
-        out_dict      = self.fuzzy_controller.compute({'error': self.e, 'delta_error': self.delta_e})
-        defuzz_output = next(iter(out_dict.values()))  # assumed first value in dict is the corresponding output
-        self.last_e   = self.e
-        return self.o + defuzz_output if self.fuzzy_controller.delta else defuzz_output
-
-    def reset_specific(self):
-        self.last_e = 0.0
-
-    def more_info_for_debug(self):
-        return 'delta_e:%.2f' % self.delta_e
+def missing_parameter_msg(parameter_key, controller_type):
+    return 'Parameter "%s" must be present for type %s' % (parameter_key, controller_type)
 
 
 def create_control(control_params):
-    if control_params is None:
-        return None
-
-    # print(control_params)
-    control_type   = control_params['type']
-    control_name   = control_params.get('name', 'NoName')
-    control_bounds = control_params.get('bounds', [])
-    control_lag    = control_params.get('lag', 0.0)
-    control_change = control_params.get('max_change', 0.0)
-    control_debug  = control_params.get('debug', False)
-
-    if control_type == PCUControlUnit.type:
-        control = PCUControlUnit(control_name, gains=control_params.get('gains'), bounds=control_bounds,
-                                 max_change=control_change, lag=control_lag, debug=control_debug)
-    elif control_type == PID.type:
-        gains   = control_params.get('gains')
-        control = PID(key=control_name, p=gains[0], i=gains[1], d=gains[2], bounds=control_bounds,
-                      params=control_params, max_change=control_change, lag=control_lag, debug=control_debug)
-    elif control_type == IncrementalPID.type:
-        gains = control_params.get('gains')
-        control = IncrementalPID(key=control_name, p=gains[0], i=gains[1], d=gains[2], bounds=control_bounds,
-                                 max_change=control_change, lag=control_lag, debug=control_debug)
-    elif control_type == AdaptiveControlUnit.type:
-        gain    = control_params.get('gain', 1.0)
-        l_rate  = control_params.get('learning_rate', 0.01)
-        d_rate  = control_params.get('decay_rate', 0.0)
-        length  = control_params.get('past_length', 10)
-        control = AdaptiveControlUnit(control_name, gain=gain, learning_rate=l_rate, decay_rate=d_rate,
-                                      past_length=length, debug=control_debug)
-    elif control_type == FuzzyController.type:
-        file_name = control_params['file_name']
-        control   = FuzzyController(file_name, bounds=control_bounds, max_change=control_change, lag=control_lag,
-                                    debug=control_debug)
-    else:
-        raise Exception('%s control type not implemented' % control_type)
-    return control
+    if GenericControlUnit.k_type not in control_params:
+        raise Exception('No type defined for controller %s' % control_params)
+    control_type       = control_params[GenericControlUnit.k_type]
+    control_unit_class = GenericControlUnit.get_class(control_type)
+    if control_unit_class is None:
+        raise Exception('Control type %s is not implemented' % control_type)
+    # print('Create %s ' % control_unit_class)
+    return control_unit_class(control_params)
 
 
 class DeConvolution:
@@ -679,7 +704,35 @@ def dict_to_label(values, exclude_keys=(), max_length=80):
     return message
 
 
+def get_param(params, key, default, state=None):
+    """
+    Returns params[key], but with some exceptions:
+        * if key not in params returns the default value
+        * if params[key] is a string and its in state, returns state[value]
+    This is useful for setting parameters, ex:
+        params{gains: [kp, 1.0, 0.1] ... }
+        state(kp: 2.0, ... }
+        it will return 2.0
+    :param params:
+    :param key:
+    :param state:
+    :param default:
+    :return:
+    """
+    if key not in params:
+        return default
+    value = params[key]
+    if isinstance(value, str) and state is not None:
+        value = state.get(value, default)
+    return value
+
+
 # Tests
+def test_create_control(control_params):
+    control_unit = create_control(control_params)
+    return control_unit.key
+
+
 def test_deconvolution(function_name, max_iter, learning_rate, decay_rate, max_change, past_length, debug):
     deconvolution = DeConvolution(learning_rate=learning_rate, decay_rate=decay_rate, past_length=past_length,
                                   max_change=max_change, debug=debug)

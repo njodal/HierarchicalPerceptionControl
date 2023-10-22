@@ -6,6 +6,8 @@ import WinDeklar.QTAux as QTAux
 import WinDeklar.WindowForm as WinForm
 import WinDeklar.graph_aux as ga
 
+import hierarchical_control
+import view_aux_functions as va
 import CarControl as CarCon
 import CarModel as CarMod
 
@@ -15,7 +17,7 @@ class CarSpeedControlHost(WinForm.HostModel):
     Shows car speed control
     """
 
-    def __init__(self, dt=0.1, control_type='PID', car_name='simple'):
+    def __init__(self, dt=0.1, control_def_file_name='PID', car_name='simple'):
         # keys (names used in the yaml definition file)
         self.ref_speed_key         = 'ref_speed'
         self.olag_key              = 'olag'
@@ -38,23 +40,30 @@ class CarSpeedControlHost(WinForm.HostModel):
         self.dt              = dt
         self.car_name        = car_name
         car_type             = CarMod.get_car_type(car_name)
-        self.model           = CarMod.CarModel(car_type, output_lag=0)
-        self.control         = CarCon.get_car_speed_controller(control_type)
+        self.model           = CarMod.CarModel(car_type, output_lag=0, acc_pedal_key='accelerator',
+                                               brake_pedal_key='brake')
+        # self.control         = CarCon.get_car_speed_controller(control_def_file_name)
+        self.control         = hierarchical_control.HierarchicalControl(control_def_file_name, dir_name='cars')
         self.speed_reference = ga.RealTimeConstantDataProvider(dt=self.dt, color='Black')
         self.speed_control   = RealTimeControlSpeedDataProvider(self.model, self.control, color='Red')
 
-        self.acceleration_values = self.model.get_real_time_data(self.model.acc_key, dt=self.dt, min_y=-2.0,
-                                                                 max_y=2.0, color='Black')
+        max_acc = 3.0
+        self.acceleration_values = va.RealTimeObjectAttributeDataProvider(self.control, 'ref_acceleration',
+                                                                          dt=self.dt, min_y=-max_acc, max_y=max_acc,
+                                                                          color='Black')
+        self.current_acc_values  = va.RealTimeObjectAttributeDataProvider(self.model, self.model.acc_sensor_key,
+                                                                          dt=self.dt, min_y=-2.0, max_y=2.0,
+                                                                          color='Red')
         min_y = -2
         max_y = self.model.max_pedal_value - min_y
-        self.acc_values   = self.model.get_real_time_data(self.model.acc_pedal_key, dt=self.dt, min_y=min_y,
-                                                          max_y=max_y, color='Black')
-        self.brake_values = self.model.get_real_time_data(self.model.brake_pedal_key, dt=self.dt,
-                                                          min_y=min_y, max_y=max_y, color='Red')
+        self.acc_values   = va.RealTimeObjectAttributeDataProvider(self.model, self.model.acc_pedal_key, dt=self.dt,
+                                                                   min_y=min_y, max_y=max_y, color='Black')
+        self.brake_values = va.RealTimeObjectAttributeDataProvider(self.model, self.model.brake_pedal_key, dt=self.dt,
+                                                                   min_y=min_y, max_y=max_y, color='Red')
 
         initial_values = self.control.get_parameters()
-        initial_values[self.control_type_key] = control_type
-        print('initial state:%s' % initial_values)
+        initial_values[self.control_type_key] = control_def_file_name
+        # print('initial state:%s' % initial_values)
         super(CarSpeedControlHost, self).__init__(initial_values=initial_values)
 
     def initialize(self):
@@ -84,7 +93,7 @@ class CarSpeedControlHost(WinForm.HostModel):
         elif figure.name == self.graph_speed_acc:
             data_provider1 = [self.acc_values, self.brake_values]
         elif figure.name == self.graph_speed_acc1:
-            data_provider1 = [self.acceleration_values]
+            data_provider1 = [self.acceleration_values, self.current_acc_values]
         else:
             raise Exception('"%s" graph name not implemented' % figure.name)
 
@@ -168,11 +177,11 @@ class RealTimeControlSpeedDataProvider(ga.RealTimeDataProvider):
 
     def set_reference(self, new_reference):
         self.reference = new_reference
-        self.control.set_reference(self.reference)
+        self.control.set_reference('ref_speed', self.reference)
 
     def get_next_values(self, i):
         x       = self.t
-        actions = self.control.get_actions(self.model.get_state(), [])
+        actions = self.control.get_actions(self.model.get_sensors(), [])
         self.model.apply_actions(actions, self.dt)
         position, speed, _ = self.model.get_state()
 
@@ -182,8 +191,8 @@ class RealTimeControlSpeedDataProvider(ga.RealTimeDataProvider):
 
 if __name__ == '__main__':
     app = QTAux.def_app()
-    par_control_type = WinForm.get_arg_value(1, None)
-    def_control_type = 'PID' if par_control_type is None else par_control_type
-    provider = CarSpeedControlHost(control_type=def_control_type)        # class to handle events
+    par_control_type       = WinForm.get_arg_value(1, None)
+    control_def_file_name1 = 'simple_speed_control.yaml' if par_control_type is None else par_control_type
+    provider = CarSpeedControlHost(control_def_file_name=control_def_file_name1)        # class to handle events
     WinForm.run_winform(__file__, provider)
     sys.exit(app.exec_())

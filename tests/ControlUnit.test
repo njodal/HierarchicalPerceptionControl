@@ -3,6 +3,31 @@ general:
 
   tests:
     - test:
+        call: test_create_control
+        cases:
+          - case:
+              input:  [{type: PID, gains: [2.0, 1.0], key: PID1, debug: True}]
+              output: PID1
+          - case:
+              input:  [{type: IncrementalPID, gains: [2.0, 1.0], key: I_PID1, debug: True}]
+              output: I_PID1
+          - case:
+              input:  [{type: P, gain: 2.0, key: P1, debug: True}]
+              output: P1
+          - case:
+              input:  [{type: PCU, g: 2.0, s: 3.0, key: PCU1, debug: True}]
+              output: PCU1
+          - case:
+              input:  [{type: BangBang, bellow_value: 0, above_value: 1, key: BB1, debug: True}]
+              output: BB1
+          - case:
+              input:  [{type: Lineal, gain: 2, input_bounds: [0, 10], key: L1, debug: True}]
+              output: L1
+          - case:
+              input:  [{type: Fuzzy, file_name: tipping_control.yaml, key: FZ1, debug: True}]
+              output: FZ1
+
+    - test:
         call: test_deconvolution
         cases:
           - case:

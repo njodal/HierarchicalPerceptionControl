@@ -9,6 +9,34 @@ controllers:
       speed_def:  {type: PID, name: speed, gains: [2.0, 0.4, 1.0], bounds: [-12, 12], lag': 0.5, debug: False}
 
   - controller:
+      name: PID
+      desc: fine tuned by hand with 'simple' car
+      sensors:   [position, speed]
+      actuators: [acceleration_pedal, brake_pedal]
+
+      control_units:
+          - control_unit:
+                perception: position
+                reference:  0.0
+                output:     ref_speed
+                def:  {type: PID, name: position, gains: [0.5, 0.0, 0.0], lag': 0.5}
+          - control_unit:
+                perception: speed
+                reference:  ref_speed
+                output:     acceleration
+                def:  {type: PID, name: speed, gains: [2.0, 0.4, 1.0], bounds: [-12, 12], lag': 0.5, debug: False}
+          - control_unit:
+                perception: acceleration
+                reference:  0.0
+                output:     acceleration_pedal
+                def:  {type: Lineal, name: acc_pedal, gain: 1.0, input_bounds: [0, 10], bounds: [0, 10], debug: False}
+          - control_unit:
+                perception: acceleration
+                reference:  0.0
+                output:     brake_pedal
+                def:  {type: Lineal, name: brake_pedal, gain: -1.0, input_bounds: [-10, 0], bounds: [0, 10], debug: False}
+
+  - controller:
       name: Incremental
       desc: fine tuned by hand with 'simple' car
       pos_def:    {type: IncrementalPID, name: position, gains: [0.5, 0.0, 0.00], lag': 0.5}

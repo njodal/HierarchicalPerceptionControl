@@ -1,0 +1,20 @@
+general:
+  name: Tests for hierarchical_control.py
+
+  tests:
+    - test:
+        call: test_get_items
+        cases:
+          - case:
+              input:  [simple_speed_control.yaml, cars, references, reference]
+              output: 1
+          - case:
+              input:  [simple_speed_control.yaml, cars, sensors, sensor]
+              output: 2
+
+    - test:
+        call: test_hc
+        cases:
+          - case:
+              input:  [simple_speed_control.yaml, cars]
+              output: [5, 4]
