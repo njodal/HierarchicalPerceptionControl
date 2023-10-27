@@ -1,0 +1,86 @@
+general:
+  desc: Keeps the pole upright
+
+references:
+  - reference:
+      name:  ref_pole_angle
+      value: 0.0   # always 0 to keep the pole upright
+  - reference:
+      name:  ref_force
+      value: 0.0
+
+sensors:
+  - sensor:
+      name: cart_position
+  - sensor:
+      name: cart_speed
+  - sensor:
+      name: pole_angle
+  - sensor:
+      name: pole_speed
+
+actuators:
+  - actuator:
+      name:      action
+      min_value: 0
+      max_value: 1
+
+parameters:
+  - parameter:
+      name: k_p1
+      value: 1.0
+  - parameter:
+      name: k_p1_i
+      value: 0.0
+  - parameter:
+      name: k_p1_d
+      value: 0.0
+  - parameter:
+      name: k_p2
+      value: 0.5
+  - parameter:
+      name: k_p3
+      value: 2.0
+  - parameter:
+      name: k_p4
+      value: -0.05
+  - parameter:
+      name: k_p5
+      value: 4.0
+
+autotune:
+  - parameter:
+      name: k_p1
+
+controls:
+  - control:
+      name:       pole_angle
+      reference:  ref_pole_angle
+      sensor:     pole_angle
+      definition: {type: PID, gains: [k_p1, k_p1_i, k_p1_d], debug: False}
+      output:     ref_pole_speed
+  - control:
+      name:       pole_speed
+      reference:  ref_pole_speed
+      sensor:     pole_speed
+      definition: {type: PCU, g: k_p2, debug: False}
+      output:     ref_cart_pos
+  - control:
+      name:       cart_pos
+      reference:  ref_cart_pos
+      sensor:     cart_pose
+      definition: {type: PCU, g: k_p3, debug: True}
+      output:     ref_cart_speed
+  - control:
+      name:       cart_speed
+      reference:  ref_cart_speed
+      sensor:     cart_speed
+      definition: {type: PCU, g: k_p4, s: k_p5, debug: False}
+      output:     force
+  - control:
+      name:       cart_action
+      reference:  ref_force
+      sensor:     force
+      definition: {type: BangBang, bellow_value: 0, above_value: 1, debug: False}
+      output:     action
+

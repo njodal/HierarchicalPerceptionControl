@@ -22,8 +22,9 @@ class HierarchicalControl:
     k_value      = 'value'
     k_definition = 'definition'
     k_output     = 'output'
+    k_autotune   = 'autotune'
 
-    def __init__(self, file_name, dir_name):
+    def __init__(self, file_name, dir_name, initial_parameters=None):
 
         # to avoid warnings
         self.total_error      = 0.0
@@ -38,19 +39,22 @@ class HierarchicalControl:
         self.actuator_names  = get_item_names(self.k_name, self.k_actuators, self.k_actuator, self.hc_def)
         self.parm_names      = get_item_names(self.k_name, self.k_parameters, self.k_parameter, self.hc_def)
         self.reference_names = get_item_names(self.k_name, self.k_references, self.k_reference, self.hc_def)
+        # self.autotune_names  = get_item_names(self.k_name, self.k_autotune, self.k_parameter, self.hc_def)
 
-        self.init_state()
+        self.reset(initial_parameters=initial_parameters)
+
+    def reset(self, initial_parameters=None):
+        self._state = {}
+        for [group, item] in [[self.k_references, self.k_reference], [self.k_sensors, self.k_sensor],
+                              [self.k_actuators, self.k_actuator], [self.k_parameters, self.k_parameter]]:
+            self.update_state_with_definition(group, item, self.hc_def)
+        if initial_parameters is not None:
+            self._state.update(initial_parameters)
         self.create_controls()  # must go after init_state to property init controllers
 
     def create_controls(self):
         self._controls = [ControlUnit(control_def, self._state) for control_def in
                           get_item_def(self.k_controls, self.k_control, self.hc_def)]
-
-    def init_state(self):
-        self._state = {}
-        for [group, item] in [[self.k_references, self.k_reference], [self.k_sensors, self.k_sensor],
-                              [self.k_actuators, self.k_actuator], [self.k_parameters, self.k_parameter]]:
-            self.update_state_with_definition(group, item, self.hc_def)
 
     def update_state_with_definition(self, group_name, item_name, definition):
         for item in get_item_def(group_name, item_name, definition):
@@ -69,7 +73,9 @@ class HierarchicalControl:
         self.initial_err_sign = signum(new_reference)
         self.max_overshoot    = 0.0
         self.current_e        = 0.0
-        self._controls[0].set_reference(new_reference)
+        for control in self._controls:
+            if control.reference_name == reference_name:
+                control.set_reference(new_reference)
 
     def get_actuators(self, new_sensor_values):
         """
@@ -105,6 +111,9 @@ class HierarchicalControl:
     def get_total_cost(self):
         return self.total_error
 
+    def get_last_error(self):
+        return self._controls[0].get_last_error()
+
     def parm_string(self):
         return self._controls[0].parm_string()
 
@@ -117,7 +126,7 @@ class ControlUnit:
         control_def         = control_def_all[HierarchicalControl.k_definition]
         control_def['key']  = control_def_all.get(HierarchicalControl.k_name, 'NoName')
         # print('  control def: %s' % control_def)
-        self.control        = create_control(control_def)
+        self.control        = create_control(control_def, state=state)
         self.sensor_name    = control_def_all.get(HierarchicalControl.k_sensor, None)
         self.output_name    = control_def_all.get(HierarchicalControl.k_output, None)
         self.reference_name = control_def_all.get(HierarchicalControl.k_reference, 'NoRef')
@@ -125,6 +134,9 @@ class ControlUnit:
         # print('   ref_name: %s sensor_name: %s output_name: %s' %
         #      (self.reference_name, self.sensor_name, self.output_name))
         self.control.set_reference(reference_value)
+
+    def reset(self):
+        self.control.reset()
 
     def set_reference(self, new_reference):
         self.control.set_reference(new_reference)
@@ -134,6 +146,9 @@ class ControlUnit:
         sensor_value            = state.get(self.sensor_name, 0.0)
         output_value            = self.control.get_output(reference_value, sensor_value)
         state[self.output_name] = output_value
+
+    def get_last_error(self):
+        return self.control.e
 
     def parm_string(self):
         return self.control.parm_string()

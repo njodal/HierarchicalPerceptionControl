@@ -13,23 +13,24 @@ import WinDeklar.yaml_functions as ya
 import CartPole as CarPole
 
 
-class CarPoleMoveHost(WinForm.HostModel):
+class CarPoleUprightHost(WinForm.HostModel):
     """
     Visualization of control a Cart Pole moving to a given place
     """
 
-    def __init__(self, default_directory='/tmp', file_extension='yaml'):
+    def __init__(self, control_def_file_name, default_directory='/tmp', file_extension='yaml'):
         # keys (names used in the yaml definition file)
         self.angle_ref_key   = 'angle_ref'
         self.pos_ref_key   = 'pos_reference'
-        self.kg_key        = 'kg'
-        self.ks_key        = 'ks'
-        self.kd_key        = 'kd'
+        self.k_p1_key      = 'k_p1'
+        self.ks_key        = 'k_p1_i'
+        self.kd_key        = 'k_p1_d'
         self.max_iter_key  = 'max_iter'
 
         self.action_key = 'action'
 
         # particular data
+        self.control_def_file_name = control_def_file_name
         self.action_name        = 'Action'
         self.last_action_number = 0
         self.directory          = default_directory
@@ -38,7 +39,7 @@ class CarPoleMoveHost(WinForm.HostModel):
         self.file_name          = None
 
         initial_values = {}  # used in case some control have an initial value programmatically
-        super(CarPoleMoveHost, self).__init__(initial_values=initial_values)
+        super(CarPoleUprightHost, self).__init__(initial_values=initial_values)
 
     def update_view(self, figure, ax):
         """
@@ -50,15 +51,19 @@ class CarPoleMoveHost(WinForm.HostModel):
         :param ax:
         :return:
         """
-        angle_ref  = math.radians(self.get_value(self.angle_ref_key))
-        first_g  = [self.get_value(self.kg_key), self.get_value(self.ks_key), self.get_value(self.kd_key)]
+        ref_angle  = math.radians(self.get_value(self.angle_ref_key))
+        first_g  = [self.get_value(self.k_p1_key), self.get_value(self.ks_key), self.get_value(self.kd_key)]
         # first_g  = [86.0, 76.0, 71.0]
         gains    = [[0.5], [2.0], [-0.05, 4.0]]  # [[6.0], [0.2], [-0.1, 4.0]]
         gains.insert(0, first_g)
-        max_iter  = self.get_value(self.max_iter_key)
-        debug     = True
-        steps, error_history, _, summary = CarPole.run_one_pole_control(angle_ref, gains, None, [], max_iter=max_iter,
-                                                                        debug=debug)
+        max_iter    = self.get_value(self.max_iter_key)
+        state       = {key: self.get_value(key) for key in [self.k_p1_key, self.ks_key, self.kd_key]}
+        render      = False
+        debug       = False
+        steps, error_history, total_error, summary = CarPole.run_one_pole_control(ref_angle, self.control_def_file_name,
+                                                                                  state, render, max_iter=max_iter,
+                                                                                  debug=debug)
+        print(state)
         errors_degrees = [[x, math.degrees(y)] for [x, y] in error_history]
         ref_signal = [[0.0, 0.0], [max_iter, 0.0]]
         ga.graph_points(ax, ref_signal, scale_type='tight', x_visible=True, y_visible=True, color='Black')
@@ -151,6 +156,8 @@ def progress_bar_example(progress_bar, max_value=100, inc=20, sleep_time=0.2):
 
 if __name__ == '__main__':
     app = QTAux.def_app()
-    provider = CarPoleMoveHost()        # class to handle events
+    par_control_type       = WinForm.get_arg_value(1, None)
+    control_def_file_name1 = 'pct_cart_pole_at_angle.yaml' if par_control_type is None else par_control_type
+    provider               = CarPoleUprightHost(control_def_file_name1)        # class to handle events
     WinForm.run_winform(__file__, provider)
     sys.exit(app.exec_())

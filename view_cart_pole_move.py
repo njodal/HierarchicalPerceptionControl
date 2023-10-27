@@ -17,7 +17,7 @@ class CarPoleMoveHost(WinForm.HostModel):
     Visualization of control a Cart Pole moving to a given place
     """
 
-    def __init__(self, default_directory='/tmp', file_extension='yaml'):
+    def __init__(self, control_def_file_name, default_directory='/tmp', file_extension='yaml'):
         # keys (names used in the yaml definition file)
         self.pos_ref_key   = 'pos_reference'
         self.kg_key        = 'kg'
@@ -33,6 +33,7 @@ class CarPoleMoveHost(WinForm.HostModel):
         self.width_key  = 'line_width'
 
         # particular data
+        self.control_def_file_name = control_def_file_name
         self.action_name        = 'Action'
         self.last_action_number = 0
         self.directory          = default_directory
@@ -50,9 +51,11 @@ class CarPoleMoveHost(WinForm.HostModel):
         gains.insert(0, first_g)
         max_iter  = self.get_value(self.max_iter_key)
         max_angle = self.get_value(self.max_angle_key)
+        state     = {}
+        render    = False
         debug     = True
-        steps, error_history, summary = CarPole.run_one_move_cart(pos_ref, None, gains, max_iter,
-                                                                  max_angle=max_angle, debug=debug)
+        steps, error_history, summary = CarPole.run_one_move_cart(pos_ref, self.control_def_file_name, state, render,
+                                                                  max_iter, max_angle=max_angle, debug=debug)
         ref_signal = [[0.0, 0.0], [max_iter, 0.0]]
         ga.graph_points(ax, ref_signal, scale_type='tight', x_visible=True, y_visible=True, color='Black')
         ga.graph_points(ax, error_history, scale_type='tight', x_visible=True, y_visible=True)
@@ -162,6 +165,8 @@ def progress_bar_example(progress_bar, max_value=100, inc=20, sleep_time=0.2):
 
 if __name__ == '__main__':
     app = QTAux.def_app()
-    provider = CarPoleMoveHost()        # class to handle events
+    par_control_type       = WinForm.get_arg_value(1, None)
+    control_def_file_name1 = 'pct_cart_pole_move.yaml' if par_control_type is None else par_control_type
+    provider = CarPoleMoveHost(control_def_file_name1)        # class to handle events
     WinForm.run_winform(__file__, provider)
     sys.exit(app.exec_())

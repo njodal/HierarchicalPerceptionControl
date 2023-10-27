@@ -48,11 +48,11 @@ class GenericControlUnit(object):
         :param state:  dict which can have some parameters values
         """
         self.key        = control_params.get('key', 'NoName')
-        self.min_error  = control_params.get('min_error', 0.0)
-        self.max_change = control_params.get('max_change', 0.0)
-        self.lag        = control_params.get('lag', 0.0)
-        self.bounds     = control_params.get('bounds', [])
-        self.debug      = control_params.get('debug', False)
+        self.min_error  = get_param(control_params, 'min_error', 0.0, state=state)
+        self.max_change = get_param(control_params, 'max_change', 0.0, state=state)
+        self.lag        = get_param(control_params, 'lag', 0.0, state=state)
+        self.bounds     = get_param(control_params, 'bounds', [], state=state)
+        self.debug      = get_param(control_params, 'debug', False, state=state)
         # print('  bounds for %s:%s' % (self.key, self.bounds))
 
         # to avoid warnings
@@ -231,7 +231,8 @@ class PID(GenericControlUnit):
     k_gains = 'gains'
     k_i_windup_key = 'i_windup'
 
-    def __init__(self, control_params, integrator_length=0, integrator_windup=300.0, integrator_reset=False):
+    def __init__(self, control_params, state=None, integrator_length=0, integrator_windup=300.0,
+                 integrator_reset=False):
         """
         Create a PID controller
         :param integrator_length: number of last values to be taken in integration
@@ -240,7 +241,7 @@ class PID(GenericControlUnit):
         """
         check_mandatory_param(self.k_gains, control_params, self.type)
 
-        gains = control_params.get(self.k_gains)
+        gains = get_param(control_params, self.k_gains, [], state=state)
         self.k_p = gains[0]
         self.k_i = gains[1] if len(gains) > 1 else 0.0
         self.k_d = gains[2] if len(gains) > 2 else 0.0
@@ -250,7 +251,7 @@ class PID(GenericControlUnit):
         self.integrator_reset  = control_params.get('integrator_reset', integrator_reset)
 
         self.first_time = True
-        super(PID, self).__init__(control_params)
+        super(PID, self).__init__(control_params, state=state)
 
         # there are two kind of integrators, the first one is a traditional one (just summing all values)
         # and the second one just take in count the lasts (integrator_length) values
@@ -326,10 +327,10 @@ class IncrementalPID(GenericControlUnit):
     kd_key = 'd'
     k_gains = 'gains'
 
-    def __init__(self, control_params):
+    def __init__(self, control_params, state=None):
         check_mandatory_param(self.k_gains, control_params, self.type)
 
-        gains = control_params.get(self.k_gains)
+        gains = get_param(control_params, self.k_gains, [], state=state)
         self.k_p = gains[0]
         self.k_i = gains[1] if len(gains) > 1 else 0.0
         self.k_d = gains[2] if len(gains) > 2 else 0.0
@@ -337,7 +338,7 @@ class IncrementalPID(GenericControlUnit):
         self.last_e      = 0.0
         self.last_last_e = 0.0
         self.first_time = True
-        super(IncrementalPID, self).__init__(control_params)
+        super(IncrementalPID, self).__init__(control_params, state=state)
 
         self.p_value = 0.0
         self.i_value = 0.0
@@ -352,6 +353,9 @@ class IncrementalPID(GenericControlUnit):
 
         delta_o = self.p_value + self.i_value + self.d_value
         o       = self.o + delta_o
+
+        if self.debug:
+            print('   e:%.3f last_e:%.3f last_last_e:%.3f d_o:%.3f' % (self.e, self.last_e, self.last_last_e, delta_o))
 
         self.last_last_e = self.last_e
         self.last_e      = self.e
@@ -379,11 +383,12 @@ class P(PID):
     type = 'P'
     k_p  = 'gain'
 
-    def __init__(self, control_params):
+    def __init__(self, control_params, state=None):
         check_mandatory_param(self.k_p, control_params, self.type)
 
-        control_params[self.k_gains] = [control_params[self.k_p]]
-        super(P, self).__init__(control_params)
+        kp = get_param(control_params, self.k_p, 1.0, state=state)
+        control_params[self.k_gains] = [kp]
+        super(P, self).__init__(control_params, state=state)
 
     def get_parameters(self):
         return {self.kp_key: self.k_p}
@@ -402,13 +407,13 @@ class PCU(GenericControlUnit):
     k_g  = 'g'
     k_s  = 's'
 
-    def __init__(self, control_params):
+    def __init__(self, control_params, state=None):
         check_mandatory_param(self.k_g, control_params, self.type)
 
-        self.kg = control_params[self.k_g]
-        self.ks = control_params.get(self.k_s, 1.0)
+        self.kg = get_param(control_params, self.k_g, 1.0, state=state)
+        self.ks = get_param(control_params, self.k_s, 1.0, state=state)
 
-        super(PCU, self).__init__(control_params)
+        super(PCU, self).__init__(control_params, state=state)
 
     def get_output(self, reference, perception, dt=0.0, bounds=None, min_ks=0.01):
         self.e = reference - perception
@@ -455,7 +460,7 @@ class BangBang(GenericControlUnit):
     above_value_key  = 'above_value'
     hysteresis_key   = 'hysteresis'
 
-    def __init__(self, control_params, bellow_value=1, above_value=0, hysteresis=0.0):
+    def __init__(self, control_params, state=None, bellow_value=1, above_value=0, hysteresis=0.0):
         """
         :param bellow_value:  output when p is bellow reference
         :param above_value:   output when p is above reference
@@ -465,7 +470,7 @@ class BangBang(GenericControlUnit):
         self.above_value  = control_params.get(self.above_value_key, above_value)
         self.hysteresis   = control_params.get(self.hysteresis_key, hysteresis)
 
-        super(BangBang, self).__init__(control_params)
+        super(BangBang, self).__init__(control_params, state=state)
 
     def calc_output(self, new_error):
         self.e = new_error
@@ -632,7 +637,7 @@ def missing_parameter_msg(parameter_key, controller_type):
     return 'Parameter "%s" must be present for type %s' % (parameter_key, controller_type)
 
 
-def create_control(control_params):
+def create_control(control_params, state=None):
     if GenericControlUnit.k_type not in control_params:
         raise Exception('No type defined for controller %s' % control_params)
     control_type       = control_params[GenericControlUnit.k_type]
@@ -640,7 +645,7 @@ def create_control(control_params):
     if control_unit_class is None:
         raise Exception('Control type %s is not implemented' % control_type)
     # print('Create %s ' % control_unit_class)
-    return control_unit_class(control_params)
+    return control_unit_class(control_params, state=state)
 
 
 class DeConvolution:
@@ -721,9 +726,13 @@ def get_param(params, key, default, state=None):
     """
     if key not in params:
         return default
+
     value = params[key]
-    if isinstance(value, str) and state is not None:
-        value = state.get(value, default)
+    if state is not None:
+        if isinstance(default, list):
+            value = [state.get(item, default) if isinstance(item, str) else item for item in params[key]]
+        elif isinstance(value, str):
+            value = state.get(value, default)
     return value
 
 
@@ -731,6 +740,14 @@ def get_param(params, key, default, state=None):
 def test_create_control(control_params):
     control_unit = create_control(control_params)
     return control_unit.key
+
+
+def test_control(values, control_params):
+    control_unit = create_control(control_params)
+    o = 0.0
+    for [r, p] in values:
+        o = control_unit.get_output(r, p)
+    return o
 
 
 def test_deconvolution(function_name, max_iter, learning_rate, decay_rate, max_change, past_length, debug):

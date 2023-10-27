@@ -1,7 +1,8 @@
 import math
 
 import GymEnvironment as GymEnv
-from ControlUnit import PCU, BangBang, signum, PID
+import hierarchical_control
+from ControlUnit import signum
 import auto_tune as at
 import unit_test as ut
 
@@ -11,7 +12,7 @@ class BaseGymControl(object):
     Base class for all Gymnasium cases
     """
 
-    def __init__(self, reference, overshoot_gain=1.0):
+    def __init__(self, control, overshoot_gain=1.0):
         # to avoid warnings
         self.total_error      = 0.0
         self.avg_error        = 0.0
@@ -20,11 +21,12 @@ class BaseGymControl(object):
         self.max_overshoot    = 0.0
         self.current_e        = 0.0
         self.initial_err_sign = 0
-        
+
+        self.control        = control
         self.overshoot_gain = overshoot_gain
-        self.set_reference(reference)
-        
-    def set_reference(self, new_reference):
+
+    def set_reference(self, reference_name, new_reference):
+        self.control.set_reference(reference_name, new_reference)
         self.reference        = new_reference
         self.total_error      = 0.0
         self.avg_error        = 0.0
@@ -32,6 +34,15 @@ class BaseGymControl(object):
         self.initial_err_sign = signum(self.reference)
         self.max_overshoot    = 0.0
         self.current_e        = 0.0
+
+    def get_parameters(self):
+        return self.control.get_parameters()
+
+    def set_parameters(self, new_parameters):
+        self.control.set_parameters(new_parameters)
+
+    def get_last_error(self):
+        return self.control.get_last_error()
 
     def get_action(self, observation, info):
         """
@@ -64,64 +75,69 @@ class BaseGymControl(object):
                                                                    avg)
 
 
+class CartPoleGymControl(BaseGymControl):
+    def __init__(self, control_def_name, initial_parameters=None, reference_value=0.0, reference_name='ref_name',
+                 overshoot_gain=5.0, dir_name='car_pole_control'):
+        control = hierarchical_control.HierarchicalControl(control_def_name, initial_parameters=initial_parameters,
+                                                           dir_name=dir_name)
+        super(CartPoleGymControl, self).__init__(control, overshoot_gain=overshoot_gain)
+        self.set_reference(reference_name, reference_value)
+
+    def get_action(self, observation, _):
+        cart_position, cart_speed, pole_angle, pole_speed = observation
+        sensors = {'cart_pos': cart_position, 'cart_speed': cart_speed, 'pole_angle': pole_angle,
+                   'pole_speed': pole_speed}
+        actuators = self.control.get_actuators(sensors)
+        action    = actuators['action']
+        error     = self.get_last_error()
+        self.add_to_cost(error*error)
+        # print('  action: %s' % action)
+        return action
+
+
 class MoveCartToPosition(BaseGymControl):
-    def __init__(self, gains, cart_pos_reference=0.0, max_pole_angle_allowed=5, overshoot_gain=5.0):
-        max_pole_angle    = math.radians(max_pole_angle_allowed)
-        self.unit1        = PCU('cart position', gains=gains[0],
-                                bounds=(-max_pole_angle, max_pole_angle), debug=False)
-        lower_levels_gains = [g for i, g in enumerate(gains) if i > 0]
-        self.down_control  = GymControlCartPoleAtAngle(lower_levels_gains, debug_units=[False, False, False, False])
-        super(MoveCartToPosition, self).__init__(cart_pos_reference, overshoot_gain=overshoot_gain)
+    # ToDo: deprecated, kill it
+    def __init__(self, control_def_name, initial_parameters=None, cart_pos_reference=0.0, max_pole_angle_allowed=5,
+                 overshoot_gain=5.0, reference_name='ref_final_pos', dir_name='car_pole_control'):
+        max_pole_angle = math.radians(max_pole_angle_allowed)
+        initial_parameters['min_pole_angle'] = - max_pole_angle
+        initial_parameters['max_pole_angle'] = max_pole_angle
+        control = hierarchical_control.HierarchicalControl(control_def_name, initial_parameters=initial_parameters,
+                                                           dir_name=dir_name)
+        super(MoveCartToPosition, self).__init__(control, overshoot_gain=overshoot_gain)
+        self.set_reference(reference_name, cart_pos_reference)
 
-    def get_last_error(self):
-        return self.unit1.e
-
-    def get_action(self, observation, info):
-        cart_position        = observation[0]
-        pole_angle_reference = self.unit1.get_output(self.reference, cart_position)
-        self.down_control.set_reference(pole_angle_reference)
-        action = self.down_control.get_action(observation, info)
-
-        self.add_to_cost(self.unit1.e)
-
+    def get_action(self, observation, _):
+        cart_position, cart_speed, pole_angle, pole_speed = observation
+        sensors = {'cart_pos': cart_position, 'cart_speed': cart_speed, 'pole_angle': pole_angle,
+                   'pole_speed': pole_speed}
+        actuators = self.control.get_actuators(sensors)
+        action    = actuators['action']
+        error     = self.get_last_error()
+        self.add_to_cost(error*error)
+        # print('  action: %s' % action)
         return action
 
 
 class GymControlCartPoleAtAngle(BaseGymControl):
-    def __init__(self, control_gains, debug_units=None, pole_angle_reference=0.0):
-        self.k1, self.k2, self.k3, self.k4 = control_gains
-        debug_flag = debug_units if len(debug_units) >= 4 else [False, False, False, False]
-        self.k_p, self.k_i, self.k_d = get_pid_gains(self.k1)
-        self.unit1 = PID(key='pole angle', p=self.k_p, i=self.k_i, d=self.k_d, debug=debug_flag[0])
-        self.unit2 = PCU('pole speed', control_gains[1], debug=debug_flag[1])
-        self.unit3 = PCU('cart pos', control_gains[2], debug=debug_flag[2])
-        self.unit4 = PCU('cart speed', control_gains[3], debug=debug_flag[3])
-        self.unit5 = BangBang(bellow_value=0, above_value=1, hysteresis=0.0, key='cart action')
-
+    # ToDo: deprecated, kill it
+    def __init__(self, control_def_name, initial_parameters=None, pole_angle_reference=0.0,
+                 reference_name='ref_pole_angle', dir_name='car_pole_control'):
+        control = hierarchical_control.HierarchicalControl(control_def_name, initial_parameters=initial_parameters,
+                                                           dir_name=dir_name)
         overshoot_gain = 1.0  # not problem to have overshot in this case
-        super(GymControlCartPoleAtAngle, self).__init__(pole_angle_reference, overshoot_gain=overshoot_gain)
-
-    def get_parameters(self):
-        return self.unit1.get_parameters()
-
-    def set_parameters(self, new_parameters):
-        self.unit1.set_parameters(new_parameters)
-
-    def get_last_error(self):
-        return self.unit1.e
+        super(GymControlCartPoleAtAngle, self).__init__(control, overshoot_gain=overshoot_gain)
+        self.set_reference(reference_name, pole_angle_reference)
 
     def get_action(self, observation, _):
         cart_position, cart_speed, pole_angle, pole_speed = observation
-        pole_speed_ref = self.unit1.get_output(self.reference, pole_angle)
-        cart_pos_ref   = self.unit2.get_output(pole_speed_ref, pole_speed)
-        cart_speed_ref = self.unit3.get_output(cart_pos_ref, 0.0)  # position is relative not absolute
-        action1        = self.unit4.get_output(cart_speed_ref, cart_speed)
-        action         = self.unit5.get_output(0.0, action1)
-        # action = 1 if action1 > 0.0 else 0
-        # print('  angle:%.3f speed:%.3f cart pos ref:%.3f speed ref:%.3f' % (math.degrees(pole_angle),
-        #                                                                    math.degrees(pole_speed_ref), cart_pos_ref,
-        #                                                                    cart_speed_ref))
-        self.add_to_cost(self.unit1.e*self.unit1.e)
+        sensors = {'cart_pos': cart_position, 'cart_speed': cart_speed, 'pole_angle': pole_angle,
+                   'pole_speed': pole_speed}
+        actuators = self.control.get_actuators(sensors)
+        action    = actuators['action']
+        error     = self.get_last_error()
+        self.add_to_cost(error*error)
+        print('  action: %s' % action)
         return action
 
 
@@ -140,7 +156,7 @@ class AutoTunePoleAngleControl(at.AutoTuneFunction):
     def reset(self):
         gains = self.other_g.copy()
         gains.insert(0, self.kg)
-        self.control = GymControlCartPoleAtAngle(gains, pole_angle_reference=self.ref, debug_units=[])
+        self.control = GymControlCartPoleAtAngle(gains, pole_angle_reference=self.ref)
 
     def get_parameters(self):
         return self.control.get_parameters()
@@ -216,20 +232,24 @@ def get_pid_gains(gains):
     return ks
 
 
-def run_one_move_cart(car_pos_reference, render, gains, max_iter, max_angle=5, debug=False):
-    render_mode = 'human' if render else None
-    control     = MoveCartToPosition(gains, cart_pos_reference=car_pos_reference, max_pole_angle_allowed=max_angle)
-    env         = GymEnv.BaseEnvironment('CartPole-v1', control=control, max_episode_steps=max_iter,
-                                         render_mode=render_mode)
+def run_one_move_cart(car_pos_reference, control_def_name, state, render, max_iter, max_angle=5, debug=False):
+    render_mode        = 'human' if render else None
+    max_pole_angle     = math.radians(max_angle)
+    initial_parameters = {'min_pole_angle': - max_pole_angle, 'max_pole_angle': max_pole_angle}
+    control            = CartPoleGymControl(control_def_name, initial_parameters=initial_parameters,
+                                            reference_name='ref_final_pos', reference_value=car_pos_reference)
+    env                = GymEnv.BaseEnvironment('CartPole-v1', control=control, max_episode_steps=max_iter,
+                                                render_mode=render_mode)
     steps, obs  = env.run_episode(debug=debug)
     result_msg  = get_result_msg(steps, max_iter, obs)
     summary     = '%s (%s)' % (result_msg, control.summary_string())
     return steps, env.error_history, summary
 
 
-def run_one_pole_control(pole_angle_reference, gains, render, debug_units, max_iter=500, debug=False):
+def run_one_pole_control(pole_angle_reference, control_def_name, state, render, max_iter=500, debug=False):
     render_mode = 'human' if render else None
-    control     = GymControlCartPoleAtAngle(gains, pole_angle_reference=pole_angle_reference, debug_units=debug_units)
+    control     = CartPoleGymControl(control_def_name, initial_parameters=state, reference_name='ref_pole_angle',
+                                     reference_value=pole_angle_reference, overshoot_gain=1.0)
     env         = GymEnv.BaseEnvironment('CartPole-v1', control=control, max_episode_steps=max_iter,
                                          render_mode=render_mode)
     steps, obs  = env.run_episode(debug=debug)
@@ -284,14 +304,16 @@ def test_autotune_move_cart_first_gain(cart_pos_reference, max_iter, kg, ks, gai
     return to_tune.kg, to_tune.ks
 
 
-def test_control_pole_angle(pole_angle_reference, gains, debug_units, render, debug):
-    steps, _, total_error, summary = run_one_pole_control(pole_angle_reference, gains, render, debug_units, debug=debug)
+def test_control_pole_angle(pole_angle_reference, control_def_name, state, render, debug):
+    steps, _, total_error, summary = run_one_pole_control(pole_angle_reference, control_def_name, state, render,
+                                                          debug=debug)
     print('total error: %.3f' % total_error)
     return steps
 
 
-def test_move_cart(car_pos_reference, max_iter, gains, debug_units, render, debug):
-    steps, _, summary_string = run_one_move_cart(car_pos_reference, render, gains, max_iter, debug=debug)
+def test_move_cart1(car_pos_reference, max_iter, control_def_name, state, render, debug):
+    steps, _, summary_string = run_one_move_cart(car_pos_reference, control_def_name, state, render, max_iter,
+                                                 debug=debug)
     if debug:
         print('%s' % summary_string)
     return steps

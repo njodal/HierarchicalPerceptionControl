@@ -1,0 +1,100 @@
+general:
+  desc: Keeps the pole upright
+
+references:
+  - reference:
+      name:  ref_final_pos
+      value: 0.0
+  - reference:
+      name:  ref_force
+      value: 0.0
+
+sensors:
+  - sensor:
+      name: cart_position
+  - sensor:
+      name: cart_speed
+  - sensor:
+      name: pole_angle
+  - sensor:
+      name: pole_speed
+
+actuators:
+  - actuator:
+      name:      action
+      min_value: 0
+      max_value: 1
+
+parameters:
+  - parameter:
+      name: k_p0_g
+      value: 0.4
+  - parameter:
+      name: k_p0_s
+      value: 0.1
+  - parameter:
+      name: k_p1
+      value: 3.0
+  - parameter:
+      name: k_p1_i
+      value: 0.0
+  - parameter:
+      name: k_p1_d
+      value: 0.0
+  - parameter:
+      name: k_p2
+      value: 6.0
+  - parameter:
+      name: k_p3
+      value: 0.2
+  - parameter:
+      name: k_p4
+      value: -0.1
+  - parameter:
+      name: k_p5
+      value: 4.0
+  - parameter:
+      name: max_pole_angle
+      value: 0.09   # 5 degrees
+  - parameter:
+      name: min_pole_angle
+      value: -0.09   # -5 degrees
+
+controls:
+  - control:
+      name:       cart_pos
+      reference:  ref_final_pos
+      sensor:     cart_pos
+      definition: {type: PCU, g: k_p0_g, s: k_p0_s, bounds: [min_pole_angle, max_pole_angle], debug: True}
+      output:     ref_pole_angle
+  - control:
+      name:       pole_angle
+      reference:  ref_pole_angle
+      sensor:     pole_angle
+      definition: {type: PID, gains: [k_p1, k_p1_i, k_p1_d], debug: False}
+      output:     ref_pole_speed
+  - control:
+      name:       pole_speed
+      reference:  ref_pole_speed
+      sensor:     pole_speed
+      definition: {type: PCU, g: k_p2, debug: False}
+      output:     ref_cart_pos
+  - control:
+      name:       cart_pos
+      reference:  ref_cart_pos
+      sensor:     cart_pose
+      definition: {type: PCU, g: k_p3, debug: False}
+      output:     ref_cart_speed
+  - control:
+      name:       cart_speed
+      reference:  ref_cart_speed
+      sensor:     cart_speed
+      definition: {type: PCU, g: k_p4, s: k_p5, debug: False}
+      output:     force
+  - control:
+      name:       cart_action
+      reference:  ref_force
+      sensor:     force
+      definition: {type: BangBang, bellow_value: 0, above_value: 1, debug: False}
+      output:     action
+

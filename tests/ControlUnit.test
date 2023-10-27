@@ -28,6 +28,26 @@ general:
               output: FZ1
 
     - test:
+        call: test_control
+        cases:
+          - case:
+              input:  [[[5.0, 0.0]], {type: IncrementalPID, gains: [3.0, 0.01, 1.0], bounds: [-2.0, 2.0], debug: False}]
+              output: 2.0
+          - case:
+              input:  [[[5.0, 0.0], [5.0, 0.0]], {type: IncrementalPID, gains: [3.0, 1.0, 1.0], bounds: [-2.0, 2.0], debug: True}]
+              output: 2.0
+
+    - test:
+        call: get_param
+        cases:
+          - case:
+              input:  [{p1: 1, p2: kp}, p2, 1, {kp: 2}]
+              output: 2
+          - case:
+              input:  [{p1: 1, p2: [kp, 1]}, p2, [], {kp: 2}]
+              output: [2, 1]
+
+    - test:
         call: test_deconvolution
         cases:
           - case:

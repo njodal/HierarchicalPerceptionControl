@@ -32,13 +32,14 @@ controls:
       name:       control_speed
       reference:  ref_speed
       sensor:     speed
-      definition:  {type: Fuzzy, file_name: car_speed_control_detailed.yaml, name: speed, lag: 0.2, max_change: 0.2, bounds: [-2, 2], debug: True}
+      definition:  {type: Fuzzy, file_name: car_speed_control_detailed.yaml, name: speed, lag: 0.4, bounds: [-2, 2], debug: True}
       output:     ref_acceleration
   - control:
       name:       control_acceleration
       reference:  ref_acceleration
       sensor:     acceleration
-      definition: {type: PID, gains: [0.5, 0.2, 0], bounds: [-10, 10], debug: False}
+      definition: {type: IncrementalPID, gains: [0.2, 0.2, 0.2], bounds: [-10, 10], debug: False}
+      # definition: {type: PID, gains: [0.5, 0.2, 0], bounds: [-10, 10], debug: False}
       output:     desired_acceleration
   - control:
       name:       control_accelerator

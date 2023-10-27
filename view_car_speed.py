@@ -6,7 +6,7 @@ import WinDeklar.QTAux as QTAux
 import WinDeklar.WindowForm as WinForm
 import WinDeklar.graph_aux as ga
 
-import hierarchical_control
+import hierarchical_control as hc
 import view_aux_functions as va
 import CarControl as CarCon
 import CarModel as CarMod
@@ -42,8 +42,7 @@ class CarSpeedControlHost(WinForm.HostModel):
         car_type             = CarMod.get_car_type(car_name)
         self.model           = CarMod.CarModel(car_type, output_lag=0, acc_pedal_key='accelerator',
                                                brake_pedal_key='brake')
-        # self.control         = CarCon.get_car_speed_controller(control_def_file_name)
-        self.control         = hierarchical_control.HierarchicalControl(control_def_file_name, dir_name='cars')
+        self.control         = hc.HierarchicalControl(control_def_file_name, dir_name='cars')
         self.speed_reference = ga.RealTimeConstantDataProvider(dt=self.dt, color='Black')
         self.speed_control   = RealTimeControlSpeedDataProvider(self.model, self.control, color='Red')
 

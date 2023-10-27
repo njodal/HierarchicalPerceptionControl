@@ -32,13 +32,13 @@ controls:
       name:       control_speed
       reference:  ref_speed
       sensor:     speed
-      definition: {type: IncrementalPID, gains: [3.0, 0.01, 1.0], bounds: [-2.0, 2.0], debug: True}
+      definition: {type: PID, gains: [1.0, 0.0, 0.0], bounds: [-2.0, 2.0], lag: 0.2, debug: True}
       output:     ref_acceleration
   - control:
       name:       control_acceleration
       reference:  ref_acceleration
       sensor:     acceleration
-      definition: {type: PID, gains: [1.0, 0.1, 0], bounds: [-10, 10], debug: False}
+      definition: {type: IncrementalPID, gains: [0.2, 0.2, 0.2], bounds: [-10, 10], debug: False}
       output:     desired_acceleration
   - control:
       name:       control_accelerator

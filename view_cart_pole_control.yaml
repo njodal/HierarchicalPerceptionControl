@@ -80,23 +80,23 @@ window:
                           parms:   [100, 10000, 1]      # [min_value, max_value, scale]
                           value:   1000
                       - widget:
-                          name:    kg
+                          name:    k_p1
                           title:   Proportional gain
                           type:    EditNumberSpin
                           parms:   {step: 0.1}
-                          value:   3.0
+                          value:   1.0
                       - widget:
-                          name:    ks
+                          name:    k_p1_i
                           title:   Integral gain
                           type:    EditNumberSpin
                           parms:   {step: 0.1, maximum: 1000}
-                          value:   1.0
+                          value:   0.0
                       - widget:
-                          name:    kd
+                          name:    k_p1_d
                           title:   Derivative gain
                           type:    EditNumberSpin
                           parms:   {step: 0.1, maximum: 1000}
-                          value:   2.5
+                          value:   0.0
 
                 - item:
                     name:    graph
