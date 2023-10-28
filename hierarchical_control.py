@@ -1,4 +1,4 @@
-
+import auto_tune
 import yaml_functions as yaml
 from ControlUnit import signum, create_control
 import unit_test as ut
@@ -39,7 +39,7 @@ class HierarchicalControl:
         self.actuator_names  = get_item_names(self.k_name, self.k_actuators, self.k_actuator, self.hc_def)
         self.parm_names      = get_item_names(self.k_name, self.k_parameters, self.k_parameter, self.hc_def)
         self.reference_names = get_item_names(self.k_name, self.k_references, self.k_reference, self.hc_def)
-        # self.autotune_names  = get_item_names(self.k_name, self.k_autotune, self.k_parameter, self.hc_def)
+        self.autotune_names  = get_item_names(self.k_name, self.k_autotune, self.k_parameter, self.hc_def)
 
         self.reset(initial_parameters=initial_parameters)
 
@@ -107,6 +107,9 @@ class HierarchicalControl:
     def set_parameters(self, new_parameters):
         # ToDo: to be implemented
         return None
+
+    def get_autotune_parameters(self):
+        return {k: self._state[k] for k in self.autotune_names}
 
     def get_total_cost(self):
         return self.total_error

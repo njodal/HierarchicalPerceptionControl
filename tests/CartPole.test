@@ -24,43 +24,26 @@ general:
               output: 500
 
     - test:
-        call: test_move_cart1
-        cases:
-          - case:
-              input:  [2.0, 500, pct_cart_pole_move.yaml, {}, True, False]
-              output: 1000
-
-    - test:
         call: test_move_cart
         cases:
           - case:
-              input:  [1.0, 1000, [[0.3, 300.0], [3.0], [5.0], [0.2], [-0.05, 4.0]], [True, True, True, True], False, False]
-              output: 1000
-          - case:
-              input:  [1.0, 1000, [[0.5, 267.0], [3.0], [5.0], [0.2], [-0.05, 4.0]], [True, True, True, True], False, False]
-              output: 1000
-          - case:
-              input:  [1.0, 1000, [[1.2, 200.0], [3.5], [0.5], [2.0], [-0.05, 4.0]], [True, True, True, True], False, False]
-              output: 1000
-          - case:
-              desc:   fine tuned by hand
-              input:  [1.0, 1000, [[0.4, 1.0], [3.0], [6.0], [0.2], [-0.1, 4.0]], [True, True, True, True], False, False]
-              output: 1000
+              input:  [2.0, 500, pct_cart_pole_move.yaml, {}, False, False]
+              output: 500
 
     - test:
-        call: test_autotune_pole_angle_first_gain
+        call: test_autotune_pole_angle
         precision: 0.5
         cases:
           - case:
-              input:  [2.0, [1.0, 1.0, 1.0], [[0.5], [2.0], [-0.05, 4.0]], False, False]
-              output: [3.0, 1.0, 2.5]
+              input:  [0.0, pct_cart_pole_at_angle.yaml, {k_p1: 3.5}, False, False]
+              output: [1.5]
 
     - test:
-        call: test_autotune_move_cart_first_gain
+        call: test_autotune_move_cart
         precision: 0.5
         cases:
           - case:
-              input:  [1.0, 1000, 1.0, 10.0, [[3.0], [5.0], [0.2], [-0.05, 4.0]], False, False]
+              input:  [1.0, pct_cart_pole_at_angle.yaml, 1000, 1.0, 10.0, [[3.0], [5.0], [0.2], [-0.05, 4.0]], False, False]
               output: [0.3, 500]
           - case:
               input:  [1.0, 1000, 1.0, 10.0, [[3.5], [0.5], [2.0], [-0.05, 4.0]], True, False]

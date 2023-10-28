@@ -51,6 +51,10 @@ parameters:
 autotune:
   - parameter:
       name: k_p1
+  #- parameter:
+  #    name: k_p1_d
+  #- parameter:
+  #    name: k_p1_i
 
 controls:
   - control:
@@ -69,7 +73,7 @@ controls:
       name:       cart_pos
       reference:  ref_cart_pos
       sensor:     cart_pose
-      definition: {type: PCU, g: k_p3, debug: True}
+      definition: {type: PCU, g: k_p3, debug: False}
       output:     ref_cart_speed
   - control:
       name:       cart_speed

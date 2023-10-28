@@ -95,6 +95,10 @@ def twiddle(function_object, threshold=0.1, change=10.0, max_iterations=1000, go
 
 
 class AutoTuneFunction(object):
+    """
+    Wrapper class to tune the parameters of a given function according to a certain cost function
+    """
+
     def __init__(self, max_iter=500, threshold=0.01, change=10.0, bad_inc=2.0, mid_inc=1.05):
         self.mid_inc   = mid_inc
         self.bad_inc   = bad_inc
@@ -115,7 +119,16 @@ class AutoTuneFunction(object):
     def get_parameters(self):
         return {}
 
+    def set_parameters(self, new_parameters):
+        pass
+
     def run_function_with_parameters(self, parameters):
+        """
+        Run the function with the parameters and returns the cost
+        Abstract method, each subclass must implement the call to the function to optimize and return the cost
+        :param parameters:
+        :return:
+        """
         self.total_i += 1
         cost          = 0.0
         return cost

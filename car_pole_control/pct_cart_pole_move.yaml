@@ -65,7 +65,7 @@ controls:
       name:       cart_pos
       reference:  ref_final_pos
       sensor:     cart_pos
-      definition: {type: PCU, g: k_p0_g, s: k_p0_s, bounds: [min_pole_angle, max_pole_angle], debug: True}
+      definition: {type: PCU, g: k_p0_g, s: k_p0_s, bounds: [min_pole_angle, max_pole_angle], debug: False}
       output:     ref_pole_angle
   - control:
       name:       pole_angle
