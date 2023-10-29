@@ -1,5 +1,5 @@
 from ControlUnit import create_control
-from CarModel import CarEnvironment, CarEnvironment1, CarModel
+from CarModel import CarEnvironment, CarEnvironment1
 import hierarchical_control as hc
 import auto_tune as at
 
@@ -10,6 +10,7 @@ import unit_test as ut
 
 
 class CarSpeedControl(hc.BaseHierarchicalControl):
+    # ToDo: deprecated, do not use anymore
     """
     Control the speed of a Car changing its accelerator and brake pedals
     """
@@ -111,12 +112,6 @@ def get_actions_from_acceleration(acceleration):
     return actions
 
 
-def get_car_speed_controller(controller_name):
-    cars_file  = yf.get_yaml_file('cars/car_speed_controllers.yaml')
-    controller = yf.get_record(cars_file, controller_name, 'controllers', 'controller')
-    return CarSpeedControl(0.0, controller['def'])
-
-
 def get_car_position_controllers(controller_name):
     cars_file  = yf.get_yaml_file('cars/car_position_controllers.yaml')
     controller = yf.get_record(cars_file, controller_name, 'controllers', 'controller')
@@ -124,17 +119,8 @@ def get_car_position_controllers(controller_name):
 
 
 # tests
-def test_speed_control(speed_reference, output_lag, dt, max_steps, speed_control_def, debug):
-    control = CarSpeedControl(speed_reference, speed_control_def)
-    env     = CarEnvironment(control, output_lag=output_lag, dt=dt, max_steps=max_steps)
-    steps, observation, errors = env.run_episode()
-    if debug:
-        print('speed:%.2f (ref:%.2f) at step %s (total error:%.3f)' % (observation[1], speed_reference, steps, errors))
-    return observation[1]
-
-
-def test_hc_speed_control(speed_reference, output_lag, dt, max_steps, file_name, debug, k_speed='speed',
-                          k_ref_speed='ref_speed'):
+def test_speed_control(speed_reference, output_lag, dt, max_steps, file_name, debug, k_speed='speed',
+                       k_ref_speed='ref_speed'):
     control = hc.HierarchicalControl(file_name, dir_name='cars')
     control.set_value(k_ref_speed, speed_reference)
     env = CarEnvironment1(control, output_lag=output_lag, dt=dt, max_steps=max_steps)
@@ -147,6 +133,7 @@ def test_hc_speed_control(speed_reference, output_lag, dt, max_steps, file_name,
 
 def test_auto_tune_speed_control(car_name, output_lag, slope, dt, max_iter, reference_changes, slope_changes,
                                  speed_control_def, debug):
+    # ToDo: do not use CarSpeedControl any more
     control         = CarSpeedControl(0.0, speed_control_def)
     first_params    = control.get_parameters()
     auto_tune       = AutoTuneCar(car_name, control, output_lag, reference_changes, slope_changes=slope_changes,

@@ -32,7 +32,7 @@ controls:
       name:       control_speed
       reference:  ref_speed
       sensor:     speed
-      definition: {type: PID, gains: [1.0, 0.0, 0.0], bounds: [-2.0, 2.0], lag: 0.2, debug: True}
+      definition: {type: PID, gains: [k_p, 0.0, 0.0], bounds: [-2.0, 2.0], lag: 0.2, debug: True}
       output:     ref_acceleration
   - control:
       name:       control_acceleration

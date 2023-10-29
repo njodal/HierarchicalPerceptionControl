@@ -98,30 +98,6 @@ class CartPoleGymControl(BaseGymControl):
         return action
 
 
-class MoveCartToPosition(BaseGymControl):
-    # ToDo: deprecated, kill it
-    def __init__(self, control_def_name, initial_parameters=None, cart_pos_reference=0.0, max_pole_angle_allowed=5,
-                 overshoot_gain=5.0, reference_name='ref_final_pos', dir_name='car_pole_control'):
-        max_pole_angle = math.radians(max_pole_angle_allowed)
-        initial_parameters['min_pole_angle'] = - max_pole_angle
-        initial_parameters['max_pole_angle'] = max_pole_angle
-        control = hierarchical_control.HierarchicalControl(control_def_name, initial_parameters=initial_parameters,
-                                                           dir_name=dir_name)
-        super(MoveCartToPosition, self).__init__(control, overshoot_gain=overshoot_gain)
-        self.set_reference(reference_name, cart_pos_reference)
-
-    def get_action(self, observation, _):
-        cart_position, cart_speed, pole_angle, pole_speed = observation
-        sensors = {'cart_pos': cart_position, 'cart_speed': cart_speed, 'pole_angle': pole_angle,
-                   'pole_speed': pole_speed}
-        actuators = self.control.get_actuators(sensors)
-        action    = actuators['action']
-        error     = self.get_last_error()
-        self.add_to_cost(error*error)
-        # print('  action: %s' % action)
-        return action
-
-
 class AutoTunePoleAngleControl(at.AutoTuneFunction):
     def __init__(self, control_def_file_name, pole_angle_reference=0.0, state=None, render=False, debug=False):
         self.debug   = debug
