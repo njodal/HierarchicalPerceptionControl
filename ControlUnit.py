@@ -509,10 +509,10 @@ class LinealControlUnit(GenericControlUnit):
     k_gain     = 'gain'
     k_i_bounds = 'input_bounds'
 
-    def __init__(self, control_params):
+    def __init__(self, control_params, state=None):
         self.gain         = control_params.get(self.k_gain, 1.0)
         self.input_bounds = control_params.get(self.k_i_bounds, [])
-        super(LinealControlUnit, self).__init__(control_params)
+        super(LinealControlUnit, self).__init__(control_params, state=state)
 
     def update(self, new_p, dt=0.0):
         bounded_r = sg.bound_value(self.r, self.input_bounds)
@@ -537,7 +537,7 @@ class FuzzyController(GenericControlUnit):
     k_file_name = 'file_name'
     k_dir_name  = 'dir'
 
-    def __init__(self, control_params, def_dir_name='fuzzy_rules'):
+    def __init__(self, control_params, def_dir_name='fuzzy_rules', state=None):
         check_mandatory_param(self.k_file_name, control_params, self.type)
 
         file_name             = control_params[self.k_file_name]
@@ -546,7 +546,7 @@ class FuzzyController(GenericControlUnit):
 
         self.last_e  = 0.0
         self.delta_e = 0.0  # stored for debug
-        super(FuzzyController, self).__init__(control_params)
+        super(FuzzyController, self).__init__(control_params, state=state)
 
     def calc_output(self, new_error):
         self.e        = new_error
