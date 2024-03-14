@@ -54,8 +54,8 @@ class CarPoleMoveHost(WinForm.HostModel):
         state     = {}
         render    = False
         debug     = True
-        steps, error_history, summary = CarPole.run_one_move_cart(pos_ref, self.control_def_file_name, state, render,
-                                                                  max_iter, max_angle=max_angle, debug=debug)
+        steps, error_history, _, summary = CarPole.run_one_move_cart(pos_ref, self.control_def_file_name, state, render,
+                                                                     max_iter, max_angle=max_angle, debug=debug)
         ref_signal = [[0.0, 0.0], [max_iter, 0.0]]
         ga.graph_points(ax, ref_signal, scale_type='tight', x_visible=True, y_visible=True, color='Black')
         ga.graph_points(ax, error_history, scale_type='tight', x_visible=True, y_visible=True)

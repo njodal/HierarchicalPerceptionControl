@@ -13,17 +13,6 @@ class GenericControlUnit(object):
     k_min_dt = 'min_dt'
 
     @staticmethod
-    def get_subclass(control_unit_type, super_class):
-        for cls in super_class.__subclasses__():
-            if cls.type == control_unit_type:
-                return cls
-            cls = GenericControlUnit.get_subclass(control_unit_type, cls)
-            if cls is not None:
-                return cls
-
-        return None
-
-    @staticmethod
     def get_class(control_unit_type):
         """
         Given a control_unit_type ('PID', 'PCU', etc.), returns the corresponding class
@@ -40,29 +29,48 @@ class GenericControlUnit(object):
 
         return None
 
+    @staticmethod
+    def get_subclass(control_unit_type, super_class):
+        """
+        Given a control_unit_type and a super_class, returns the corresponding class searching down in the hierarchy
+        :param control_unit_type:
+        :param super_class:
+        :return:
+        """
+        for cls in super_class.__subclasses__():
+            if cls.type == control_unit_type:
+                return cls
+            cls = GenericControlUnit.get_subclass(control_unit_type, cls)
+            if cls is not None:
+                return cls
+
+        return None
+
     def __init__(self, control_params, dt=0.1, min_dt=0.0001, state=None):
         """
+        init
         :param control_params: dict with control definitions
         :param dt:     interval between outputs
         :param min_dt: minimum dt to be useful, if less than this value a dt of 0.0 is assumed
         :param state:  dict which can have some parameters values
         """
-        self.key        = control_params.get('key', 'NoName')
-        self.min_error  = get_param(control_params, 'min_error', 0.0, state=state)
-        self.max_change = get_param(control_params, 'max_change', 0.0, state=state)
-        self.lag        = get_param(control_params, 'lag', 0.0, state=state)
-        self.bounds     = get_param(control_params, 'bounds', [], state=state)
-        self.debug      = get_param(control_params, 'debug', False, state=state)
-        # print('  bounds for %s:%s' % (self.key, self.bounds))
-
         # to avoid warnings
         self.o  = 0.0  # output
         self.r  = 0.0  # reference (or set point)
         self.e  = 0.0  # error: difference between reference and perception (in that order)
         self.p  = 0.0  # perception
 
-        self.dt     = control_params.get(self.k_dt, dt)
-        self.min_dt = control_params.get(self.k_min_dt, min_dt)
+        # common parameters
+        self.key        = control_params.get('key', 'NoName')
+        self.min_error  = get_param(control_params, 'min_error', 0.0, state=state)
+        self.max_change = get_param(control_params, 'max_change', 0.0, state=state)
+        self.lag        = get_param(control_params, 'lag', 0.0, state=state)
+        self.bounds     = get_param(control_params, 'bounds', [], state=state)
+        self.dt         = control_params.get(self.k_dt, dt)
+        self.min_dt     = control_params.get(self.k_min_dt, min_dt)
+        self.debug      = get_param(control_params, 'debug', False, state=state)
+        # print('  bounds for %s:%s' % (self.key, self.bounds))
+
         self.reference_changed = True
 
         # initialization
@@ -93,7 +101,7 @@ class GenericControlUnit(object):
 
         new_o = self.calc_output(new_error)
 
-        if self.max_change > 0.0:
+        if self.max_change > 0.00001:
             # output change is bounded, cannot change too much
             # old_o = self.o
             self.o = sg.bound_value(new_o, [self.o - self.max_change, self.o + self.max_change])
@@ -230,6 +238,8 @@ class PID(GenericControlUnit):
     kd_key  = 'd'
     k_gains = 'gains'
     k_i_windup_key = 'i_windup'
+    k_i_length     = 'integrator_length'
+    k_i_reset      = 'integrator_reset'
 
     def __init__(self, control_params, state=None, integrator_length=0, integrator_windup=300.0,
                  integrator_reset=False):
@@ -247,8 +257,8 @@ class PID(GenericControlUnit):
         self.k_d = gains[2] if len(gains) > 2 else 0.0
 
         self.i_windup          = control_params.get(self.k_i_windup_key, integrator_windup)
-        self.integrator_length = control_params.get('integrator_length', integrator_length)
-        self.integrator_reset  = control_params.get('integrator_reset', integrator_reset)
+        self.integrator_length = control_params.get(self.k_i_length, integrator_length)
+        self.integrator_reset  = control_params.get(self.k_i_reset, integrator_reset)
 
         self.first_time = True
         super(PID, self).__init__(control_params, state=state)

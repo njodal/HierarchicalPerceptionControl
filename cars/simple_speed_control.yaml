@@ -1,5 +1,5 @@
 general:
-  desc: control of lineal speed of a car with an accelerator and brake pedals
+  desc: control of linear speed of a car with an accelerator and brake pedals
 
 references:
   - reference:
