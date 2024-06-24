@@ -61,14 +61,14 @@ class GenericControlUnit(object):
         self.p  = 0.0  # perception
 
         # common parameters
-        self.key        = control_params.get('key', 'NoName')
-        self.min_error  = get_param(control_params, 'min_error', 0.0, state=state)
-        self.max_change = get_param(control_params, 'max_change', 0.0, state=state)
-        self.lag        = get_param(control_params, 'lag', 0.0, state=state)
-        self.bounds     = get_param(control_params, 'bounds', [], state=state)
-        self.dt         = control_params.get(self.k_dt, dt)
-        self.min_dt     = control_params.get(self.k_min_dt, min_dt)
-        self.debug      = get_param(control_params, 'debug', False, state=state)
+        self.key        = control_params.get('key', 'NoName')   # name, used for debugging
+        self.max_change = get_param(control_params, 'max_change', 0.0, state=state)  # output cannot change faster
+        self.bounds     = get_param(control_params, 'bounds', [], state=state)       # min and max values of output
+        self.lag        = get_param(control_params, 'lag', 0.0, state=state)         # cycle needed to react
+        self.dt         = control_params.get(self.k_dt, dt)                          # default interval control time
+        self.min_dt     = control_params.get(self.k_min_dt, min_dt)                  # do not react to dt smaller
+        self.min_error  = get_param(control_params, 'min_error', 0.0, state=state)   # don't react to smaller error
+        self.debug      = get_param(control_params, 'debug', False, state=state)     # print controller info
         # print('  bounds for %s:%s' % (self.key, self.bounds))
 
         self.reference_changed = True
@@ -594,6 +594,8 @@ class AdaptiveControlUnit:
         self.weights       = [0.0 for _ in range(self.past_length+1)]
         self.reference_changed = True
         self.debug         = debug
+        self.parm_state    = {'gain': self.gain, 'past_length': self.past_length, 'learning_rate': self.learning_rate,
+                              'decay_rate': self.decay_rate}
 
         self.r = 0.0
         self.o = 0.0
@@ -632,10 +634,13 @@ class AdaptiveControlUnit:
                                                                        change))
 
     def get_parameters(self):
-        return {'gain': self.gain, 'past_length': self.past_length, 'learning_rate': self.learning_rate}
+        return self.parm_state
 
     def set_parameters(self, parameters):
-        pass
+        for k, v in parameters:
+            if not k not in self.parm_state:
+                continue
+            self.parm_state[k] = v
 
 
 def check_mandatory_param(parameter_key, params, controller_type):

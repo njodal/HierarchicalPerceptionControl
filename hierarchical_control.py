@@ -4,6 +4,16 @@ from ControlUnit import signum, create_control
 import unit_test as ut
 
 
+def widget_from_param(param_def, default_type='EditNumberSpin'):
+    values = param_def
+    if HierarchicalControl.k_type not in values:
+        values[HierarchicalControl.k_type] = default_type
+        if HierarchicalControl.k_parms:
+            values[HierarchicalControl.k_parms] = {'step': 0.1}
+
+    return {'widget': values}
+
+
 class HierarchicalControl:
     """
     Handle a hierarchical control as defined in a given file
@@ -16,6 +26,7 @@ class HierarchicalControl:
     k_actuator   = 'actuator'
     k_parameters = 'parameters'
     k_parameter  = 'parameter'
+    k_parms      = 'parms'
     k_controls   = 'controls'
     k_control    = 'control'
     k_name       = 'name'
@@ -23,6 +34,7 @@ class HierarchicalControl:
     k_definition = 'definition'
     k_output     = 'output'
     k_autotune   = 'autotune'
+    k_type       = 'type'
 
     def __init__(self, file_name, dir_name, initial_parameters=None):
 
@@ -40,6 +52,8 @@ class HierarchicalControl:
         self.parm_names      = get_item_names(self.k_name, self.k_parameters, self.k_parameter, self.hc_def)
         self.reference_names = get_item_names(self.k_name, self.k_references, self.k_reference, self.hc_def)
         self.autotune_names  = get_item_names(self.k_name, self.k_autotune, self.k_parameter, self.hc_def)
+
+        self._parms_def = [parm_def for parm_def in get_item_def(self.k_parameters, self.k_parameter, self.hc_def)]
 
         self.reset(initial_parameters=initial_parameters)
 
@@ -101,12 +115,14 @@ class HierarchicalControl:
         return {name: self._state[name] for name in self.actuator_names}
 
     def get_parameters(self):
-        # ToDo: to be implemented
-        return {}
+        return {name: self._state[name] for name in self.parm_names}
 
     def set_parameters(self, new_parameters):
-        # ToDo: to be implemented
-        return None
+        for k, v in new_parameters.items():
+            if k not in self.parm_names:
+                print('Warning: %s is not a valid parameter name (valid ones:%s)' % (k, self.parm_names))
+                continue
+            self.set_value(k, v)
 
     def get_autotune_parameters(self):
         return {k: self._state[k] for k in self.autotune_names}
@@ -116,6 +132,13 @@ class HierarchicalControl:
 
     def get_last_error(self):
         return self._controls[0].get_last_error()
+
+    def get_parameters_as_widget(self):
+        """
+        Returns the controller parameters in a widget format so in can be added in a form
+        :return:
+        """
+        return [widget_from_param(param_def) for param_def in self._parms_def]
 
     def parm_string(self):
         return self._controls[0].parm_string()

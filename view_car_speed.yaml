@@ -51,38 +51,9 @@ window:
                       value:   5
                   - widget:
                       name:    control_type
-                      title:   control Type
+                      title:   Control File
+                      tooltip: File with the Hierarchical Controllers
                       type:    Text
-                  - widget:
-                      name:    p
-                      title:   Proportional Gain
-                      type:    EditNumberSpin
-                      parms:   {step: 0.1}
-                      # value:   1.5
-                  - widget:
-                      name:    i
-                      title:   Integrative Gain
-                      type:    EditNumberSpin
-                      parms:   {step: 0.1}
-                      # value:   0.1
-                  - widget:
-                      name:    d
-                      title:   Derivative Gain
-                      type:    EditNumberSpin
-                      parms:   {step: 0.1}
-                      # value:   0.25
-                  - widget:
-                      name:    g
-                      title:   Proportional Gain
-                      type:    EditNumberSpin
-                      parms:   {step: 0.1}
-                      # value:   1.5
-                  - widget:
-                      name:    s
-                      title:   Integrative Gain
-                      type:    EditNumberSpin
-                      parms:   {step: 0.1}
-                      # value:   1.5
 
           - item:
               name: graphs

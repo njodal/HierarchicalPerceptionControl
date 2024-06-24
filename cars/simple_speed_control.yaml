@@ -24,7 +24,9 @@ actuators:
 
 parameters:
   - parameter:
-      name: k_p
+      name:  k_p
+      title: Top Gain
+      tooltip: Proportional Gain for highest controller
       value: 2.0
 
 controls:

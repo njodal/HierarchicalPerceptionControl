@@ -5,6 +5,8 @@ import sys
 import WinDeklar.QTAux as QTAux
 import WinDeklar.WindowForm as WinForm
 import WinDeklar.graph_aux as ga
+from WinDeklar.WindowForm import get_win_config, ConfigurableWindow
+from WinDeklar.yaml_functions import get_file_name_with_other_extension
 
 import hierarchical_control as hc
 import view_aux_functions as va
@@ -34,7 +36,7 @@ class CarSpeedControlHost(WinForm.HostModel):
         self.graph_speed_acc       = 'graph_acc'
         self.graph_speed_acc1      = 'graph_acc1'
 
-        self.gain_keys = [self.kp_key, self.ki_key, self.kd_key, self.kg_key, self.ks_key]
+        self.parameter_keys = []
 
         # particular data
         self.dt              = dt
@@ -64,14 +66,6 @@ class CarSpeedControlHost(WinForm.HostModel):
         initial_values[self.control_type_key] = control_def_file_name
         # print('initial state:%s' % initial_values)
         super(CarSpeedControlHost, self).__init__(initial_values=initial_values)
-
-    def initialize(self):
-        conditional_widgets = [self.kp_key, self.ki_key, self.kd_key, self.kg_key, self.ks_key]
-        parameters           = self.control.get_parameters()
-        for widget_name in conditional_widgets:
-            if widget_name not in parameters:
-                screen_widget = self.get_widget_by_name(widget_name)
-                screen_widget.set_visible(False)
 
     def get_data_provider(self, figure, interval=100, min_x=0.0, max_x=10.0, data_provider=None):
         """
@@ -108,11 +102,11 @@ class CarSpeedControlHost(WinForm.HostModel):
             self.model.set_slope(value)
         elif name == self.olag_key:
             self.model.set_output_lag(int(value))
-        elif name in self.gain_keys:
-            # msg = '%s changed to %.3f' % (name, value)
+        elif name in self.parameter_keys:
+            msg = '%s changed to %.3f' % (name, value)
             # print(msg)
-            # self.show_status_bar_msg(msg)
-            self.speed_control.set_gain(name, value)
+            self.show_status_bar_msg(msg)
+            self.speed_control.set_parameter(name, value)
 
     def set_references(self):
         ref_speed = self.get_value(self.ref_speed_key)
@@ -123,6 +117,25 @@ class CarSpeedControlHost(WinForm.HostModel):
         if event.xdata is None or event.ydata is None:
             return
         self.show_status_bar_msg('x:%.2f y:%.2f' % (event.xdata, event.ydata))
+
+    def add_new_widgets(self, win_config1, debug=False):
+        """
+        Adds the HierarchicalControl parameters as widgets, so user can experiment with the effect of changing each
+        value
+        :param win_config1:
+        :param debug:
+        :return:
+        """
+        widgets = win_config1['layout'][0]['item']['layout'][0]['item']['widgets']
+        if debug:
+            print(widgets)
+        new_widgets = self.control.get_parameters_as_widget()
+        if debug:
+            print('new_widgets: %s' % new_widgets)
+        widgets.extend(new_widgets)
+        for new_widget in new_widgets:
+            name = new_widget['widget']['name']
+            self.parameter_keys.append(name)
 
     # Actions
     def auto_tune(self):
@@ -171,7 +184,7 @@ class RealTimeControlSpeedDataProvider(ga.RealTimeDataProvider):
         self.control   = control
         super(RealTimeControlSpeedDataProvider, self).__init__(dt=dt, min_y=min_y, max_y=max_y, color=color)
 
-    def set_gain(self, name, value):
+    def set_parameter(self, name, value):
         self.control.set_parameters({name: value})
 
     def set_reference(self, new_reference):
@@ -193,5 +206,10 @@ if __name__ == '__main__':
     par_control_type       = WinForm.get_arg_value(1, None)
     control_def_file_name1 = 'simple_speed_control.yaml' if par_control_type is None else par_control_type
     provider = CarSpeedControlHost(control_def_file_name=control_def_file_name1)        # class to handle events
-    WinForm.run_winform(__file__, provider)
+    # WinForm.run_winform(__file__, provider)
+    win_config_name = get_file_name_with_other_extension(__file__, 'yaml')
+    win_config      = get_win_config(win_config_name)
+    provider.add_new_widgets(win_config, debug=True)
+    ConfigurableWindow(win_config, provider)
+
     sys.exit(app.exec_())
