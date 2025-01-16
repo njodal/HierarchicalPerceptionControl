@@ -149,8 +149,8 @@ class CarModel:
         self.brake_pedal_key  = brake_pedal_key
 
         # to avoid warnings
-        self.acc_pedal   = 0
-        self.brake_pedal = 0
+        self.acc_pedal   = 0       # current accelerator pedal position (from 0 to max_pedal_value)
+        self.brake_pedal = 0       # idem for brake pedal
         self.current_pos = 0.0
         self.current_v   = 0.0
         self.current_acc = 0.0
@@ -170,6 +170,12 @@ class CarModel:
         self.current_acc = acc
 
     def apply_actions(self, actions, dt=0.1):
+        """
+        Applies an action to the actuators
+        :param actions: dict with action to apply (actuator_name: value)
+        :param dt:
+        :return:
+        """
         self.acc_pedal   = actions.get(self.acc_pedal_key, 0.0)
         acc              = sg.lineal_proportional_bounded(self.acc_pedal, 0, self.max_pedal_value, 0.0,
                                                           self.car_type.max_acc)
@@ -180,21 +186,33 @@ class CarModel:
         self.apply_acc(acc, brake_acc, dt=dt)
 
     def apply_acc(self, acc, brake_acc, dt=0.1):
+        """
+        Calculate the new current speed and position based on all the forces being present (accelerator, brake, slope,
+        etc.
+        :param acc:        forward acceleration produced by the pedal
+        :param brake_acc:  backward acceleration produce by the brake pedal
+        :param dt:
+        :return:
+        """
 
         self.acc_values.append([acc, brake_acc])     # store current value
         acc_after_lag = self.acc_values.get_value()  # actual value taking in count transport lag
         actual_acc, actual_braking_acc = acc_after_lag if acc_after_lag is not None else [0.0, 0.0]
         # print('  current: %.2f, %.2f  actual: %.2f, %.2f' % (acc, brake_acc, actual_acc, actual_braking_acc))
 
-        valid_acc         = self.car_type.valid_acc(actual_acc)
-        forward_acc       = valid_acc - self.slope_acc                           # forces that move the vehicle
-        backward_acc      = self.friction * self.current_v + actual_braking_acc  # forces that resist the movement
+        # calc all accelerations
+        valid_acc    = self.car_type.valid_acc(actual_acc)
+        forward_acc  = valid_acc - self.slope_acc                           # forces that move the vehicle
+        backward_acc = self.friction * self.current_v + actual_braking_acc  # forces that resist the movement
+
+        # calc new speed
         new_v             = self.current_v + forward_acc*dt
         new_v_after_brake = new_v - np.sign(new_v) * backward_acc * dt
         if new_v_after_brake < 0.0 < new_v or new_v < 0.0 < new_v_after_brake:
             # braking cannot change direction of movement
             new_v_after_brake = 0.0
 
+        # update new car state
         self.current_acc  = (new_v_after_brake - self.current_v)/dt  # forward_acc - np.sign(new_v) * backward_acc
         self.current_v    = new_v_after_brake
         self.current_pos += self.current_v*dt
@@ -232,6 +250,11 @@ class CarModel:
         self.acc_values.set_delay(self.olag)
 
     def set_slope(self, new_slope):
+        """
+        Set a new slope the car is facing
+        :param new_slope: positive -> uphill, negative -> downhill (in degrees)
+        :return:
+        """
         self.slope_acc = np.sin(np.radians(new_slope)) * self.gravity
 
     def __str__(self):

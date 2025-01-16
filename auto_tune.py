@@ -57,10 +57,12 @@ def twiddle(function_object, threshold=0.1, change=10.0, max_iterations=1000, go
     for j in range(0, max_iterations):
         sdp = dict_sum(dp)
         if sdp <= threshold:
+            # changes are minimal, not worth to continue
             if debug:
                 print('threshold %s reached at %s (s:%s err:%s) ' % (threshold, j, sdp, best_err))
             break
         elif function_object.is_best(best_err):
+            # best option reached, stop searching
             if debug:
                 print('best error (%s) reached at %s' % (best_err, j))
             break
@@ -87,8 +89,8 @@ def twiddle(function_object, threshold=0.1, change=10.0, max_iterations=1000, go
                     # print 'bad best %s' %(best_err)
                 else:  # There was no improvement
                     p[k] += dp[k]
-                    # As there was no improvement, the step size in either
-                    # direction, the step size might simply be too big.
+                    # As there was no improvement, the step size in either direction, the step size might simply be too
+                    # big.
                     dp[k] *= dec_inc
                     # print 'bad bad %s'  %(best_err)
     return best_err, best_p, j
@@ -99,11 +101,19 @@ class AutoTuneFunction(object):
     Wrapper class to tune the parameters of a given function according to a certain cost function
     """
 
-    def __init__(self, max_iter=500, threshold=0.01, change=10.0, bad_inc=2.0, mid_inc=1.05):
+    def __init__(self, max_iter=500, changes_threshold=0.01, change=10.0, bad_inc=2.0, mid_inc=1.05):
+        """
+
+        :param max_iter:   max number of interactions in each run
+        :param changes_threshold:  stop changing parameters when sum of changes is lower than this
+        :param change:
+        :param bad_inc:
+        :param mid_inc:
+        """
         self.mid_inc   = mid_inc
         self.bad_inc   = bad_inc
         self.change    = change
-        self.threshold = threshold
+        self.threshold = changes_threshold
         self.max_iter  = max_iter
         self.total_i   = 0  # number of calls to run_function_with_parameters
 

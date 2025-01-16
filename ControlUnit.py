@@ -1,5 +1,6 @@
 import FuzzyControl
 import signals as sg
+import auto_tune as at
 import unit_test as ut
 
 
@@ -61,14 +62,15 @@ class GenericControlUnit(object):
         self.p  = 0.0  # perception
 
         # common parameters
-        self.key        = control_params.get('key', 'NoName')   # name, used for debugging
-        self.max_change = get_param(control_params, 'max_change', 0.0, state=state)  # output cannot change faster
-        self.bounds     = get_param(control_params, 'bounds', [], state=state)       # min and max values of output
-        self.lag        = get_param(control_params, 'lag', 0.0, state=state)         # cycle needed to react
-        self.dt         = control_params.get(self.k_dt, dt)                          # default interval control time
-        self.min_dt     = control_params.get(self.k_min_dt, min_dt)                  # do not react to dt smaller
-        self.min_error  = get_param(control_params, 'min_error', 0.0, state=state)   # don't react to smaller error
-        self.debug      = get_param(control_params, 'debug', False, state=state)     # print controller info
+        self.control_params = control_params
+        self.key        = self.control_params.get('key', 'NoName')   # name, used for debugging
+        self.max_change = get_param(self.control_params, 'max_change', 0.0, state=state)  # output cannot change faster
+        self.bounds     = get_param(self.control_params, 'bounds', [], state=state)       # min and max values of output
+        self.lag        = get_param(self.control_params, 'lag', 0.0, state=state)         # cycle needed to react
+        self.dt         = self.control_params.get(self.k_dt, dt)                         # default interval control time
+        self.min_dt     = self.control_params.get(self.k_min_dt, min_dt)                  # do not react to dt smaller
+        self.min_error  = get_param(self.control_params, 'min_error', 0.0, state=state)   # don't react to smaller error
+        self.debug      = get_param(self.control_params, 'debug', False, state=state)     # print controller info
         # print('  bounds for %s:%s' % (self.key, self.bounds))
 
         self.reference_changed = True
@@ -208,6 +210,14 @@ class GenericControlUnit(object):
         :return:
         """
         return {}
+
+    def get_params_as_widgets(self):
+        """
+        Returns params as a dict used to be display in a WinDeklar form, useful to interactively change param values to
+        see the effect of changes
+        :return:
+        """
+        return [widget_from_param(par_name, par_value) for par_name, par_value in self.get_parameters().items()]
 
     def more_info_for_debug(self):
         """
@@ -573,58 +583,50 @@ class FuzzyController(GenericControlUnit):
         return 'delta_e:%.2f' % self.delta_e
 
 
-class AdaptiveControlUnit:
+class AdaptiveControlUnit(GenericControlUnit):
     """
     Adaptive control based on 'Artificial Cerebellum' by Bill Powers
     https://www.iapct.org/themes/biology-neuroscience/an-artificial-cerebellum-adaptive-stabilization-of-a-control-system/
     (and also from Rupert Young PhD Thesis
     """
 
-    type = 'AdaptiveP'
+    type            = 'AdaptiveP'
+    k_gain          = 'gain'
+    k_learning_rate = 'learning_rate'
+    k_max_change    = 'max_change'
+    k_decay_rate    = 'decay_rate'
+    k_past_length   = 'past_length'
 
-    def __init__(self, name, gain=1.0, learning_rate=0.01, decay_rate=0.0, past_length=10, max_change=0.01,
-                 debug=False):
-        self.name          = name
+    def __init__(self, control_params, state=None, gain=1.0, learning_rate=0.01, decay_rate=0.0, past_length=10,
+                 initial_weights=(1.0, 0.0)):
         self.gain          = gain
         self.learning_rate = learning_rate
-        self.max_change    = max_change
         self.decay_rate    = decay_rate
         self.past_length   = past_length
-        self.past_errors   = sg.SignalHistory(length=self.past_length)
-        self.weights       = [0.0 for _ in range(self.past_length+1)]
+
+        super(AdaptiveControlUnit, self).__init__(control_params, state=state)
+        self.set_constants()
+        self.past_errors = sg.SignalHistory(length=self.past_length)
+        self.weights     = [0.0 for _ in range(self.past_length+1)]
+        for i, v in enumerate(initial_weights):
+            self.weights[i] = v
         self.reference_changed = True
-        self.debug         = debug
-        self.parm_state    = {'gain': self.gain, 'past_length': self.past_length, 'learning_rate': self.learning_rate,
-                              'decay_rate': self.decay_rate}
 
-        self.r = 0.0
-        self.o = 0.0
-        self.e = 0.0
-        self.p = 0.0
-
-    def set_reference(self, r, precision=0.01):
-        if abs(self.r - r) > precision:
-            self.reference_changed = True
-        self.r = r
-
-    def get_output(self, reference, perception):
-        self.r = reference
-        self.p = perception
-        self.e = self.r - self.p
-        self.past_errors.append(self.e)
-
-        self.adjust_weights()
+    def calc_output(self, new_error):
+        self.past_errors.append(new_error)
+        self.adjust_weights(new_error)
 
         weighted_sum = self.past_errors.weighted_sum(self.weights, lifo_order=True)
         self.o       = self.gain*weighted_sum
+        self.e       = new_error
 
         if self.debug:
             print('   o:%.3f w_sum:%.3f e:%.3f r:%.3f p:%.3f' % (self.o, weighted_sum, self.e, self.r, self.p))
         return self.o
 
-    def adjust_weights(self):
+    def adjust_weights(self, new_error):
         for i, e in enumerate(self.past_errors.get_items_in_lifo_order()):
-            change = self.learning_rate*self.e*e
+            change = self.learning_rate*new_error*e
             self.weights[i] += change
             self.weights[i] -= self.weights[i] * self.decay_rate
             # if self.weights[i] < 0.0:
@@ -634,13 +636,24 @@ class AdaptiveControlUnit:
                                                                        change))
 
     def get_parameters(self):
-        return self.parm_state
+        return {self.k_gain: self.gain, self.k_past_length: self.past_length, self.k_learning_rate: self.learning_rate,
+                self.k_decay_rate: self.decay_rate}
 
     def set_parameters(self, parameters):
-        for k, v in parameters:
-            if not k not in self.parm_state:
+        for k, v in parameters.items():
+            if not k not in self.control_params:
                 continue
-            self.parm_state[k] = v
+            if k == 'past_length':
+                v = int(v)
+            self.control_params[k] = v
+        self.set_constants()
+
+    def set_constants(self):
+        self.gain          = self.control_params.get(self.k_gain, self.gain)
+        self.learning_rate = self.control_params.get(self.k_learning_rate, self.learning_rate)
+        self.max_change    = self.control_params.get(self.k_max_change, self.max_change)
+        self.decay_rate    = self.control_params.get(self.k_decay_rate, self.decay_rate)
+        self.past_length   = self.control_params.get(self.k_past_length, self.past_length)
 
 
 def check_mandatory_param(parameter_key, params, controller_type):
@@ -661,6 +674,102 @@ def create_control(control_params, state=None):
         raise Exception('Control type %s is not implemented' % control_type)
     # print('Create %s ' % control_unit_class)
     return control_unit_class(control_params, state=state)
+
+
+def widget_from_param(par_name, par_value, default_type='EditNumberSpin'):
+    values = {'name': par_name, 'value': par_value, 'type': default_type, 'params': {'step': 0.1}}
+    return {'widget': values}
+
+
+class AutoTuneControl(at.AutoTuneFunction):
+    """
+    Auto tune a given ControlUnit to a given step response
+    """
+
+    def __init__(self, control, reference=0.0, disturbance=0.0, dt=0.1, max_iter=500, change=1.0, output_lag=0,
+                 overshoot_cost=2.0, overshoot_max_cost=10.0, debug=False):
+        self.dt            = dt
+        self.output_lag    = output_lag
+        self.control       = control
+        self.reference     = reference
+        self.disturbance   = disturbance
+        self.over_cost     = overshoot_cost
+        self.over_max_cost = overshoot_max_cost
+        self.debug         = debug
+
+        super(AutoTuneControl, self).__init__(max_iter=max_iter, change=change)
+
+    def get_parameters(self):
+        return self.control.get_parameters()
+
+    def set_parameters(self, parameters):
+        return self.control.set_parameters(parameters)
+
+    def run_one_episode(self, parameters):
+        self.control.set_parameters(parameters)
+        self.control.reset()
+        initial_error_sign  = signum(self.reference)
+        error_cost          = 0.0
+        overshoot_error     = 0.0
+        max_overshoot_value = 0.0
+        for [p, o] in step_response_values(self.reference, self.disturbance, self.max_iter, self.dt, self.debug,
+                                           self.control):
+            abs_error   = abs(self.control.e)
+            error_cost += abs_error * self.dt
+            if initial_error_sign != signum(self.control.e):
+                # there's an overshoot
+                overshoot_error += abs_error * self.dt
+                if abs_error > max_overshoot_value:
+                    # new overshoot reached
+                    max_overshoot_value = abs_error
+        return error_cost + self.over_cost*overshoot_error + self.over_max_cost*max_overshoot_value
+
+    def run_function_with_parameters(self, parameters):
+        cost = self.run_one_episode(parameters)
+        # print('  run, parameters: %s cost: %.2f' % (parameters, cost))
+        return cost
+
+
+def step_response_values(r, d, times, dt, debug, control_unit, max_output_change=5.0, control_delta=False):
+    """
+    Very basic model to simulate a system that react to an output force (with disturbance)
+    :param control_delta: whether control output directly or it's change
+    :param r:       reference value the perception must reach
+    :param d:       disturbance force
+    :param times:   number of cycles to run the simulation
+    :param dt:      interval between cycles
+    :param debug:
+    :param control_unit: controller to use
+    :param max_output_change: max change per second the actuator (output) is able to execute
+    :return:
+    """
+    max_output_change_in_cycle = max_output_change*dt
+    current_o = 0.0
+    p         = 0.0
+    for i in range(0, times):
+        controller_o = control_unit.get_output(r, p)
+        if control_delta:
+            delta_o    = max(-max_output_change_in_cycle, min(controller_o, max_output_change_in_cycle))
+            current_o += delta_o
+            # print(f'  delta o: {delta_o}')
+        else:
+            current_o = controller_o
+        p = simple_change_model(p, current_o, d, dt)
+        if debug:
+            print(f'  {i}: p={p} o={current_o} ')
+        yield p, current_o
+
+
+def simple_change_model(p, o, d, dt):
+    """
+    Pretty basic model where the new perception is just the old one plus its derivative (with disturbance)
+    :param p:   perception
+    :param o:   output (value to send to the actuator)
+    :param d:   disturbance (external value that influence in the derivative, like a slope in a road)
+    :param dt:  delta time
+    :return:    new perception after applying o and d
+    """
+    return p + (o + d)*dt
 
 
 class DeConvolution:
@@ -763,6 +872,14 @@ def test_control(values, control_params):
     for [r, p] in values:
         o = control_unit.get_output(r, p)
     return o
+
+
+def test_step_response(r, d, times, dt, debug, control_params):
+    control_unit = create_control(control_params)
+    p_last = 0.0
+    for [p, o] in step_response_values(r, d, times, dt, debug, control_unit):
+        p_last = p
+    return p_last
 
 
 def test_deconvolution(function_name, max_iter, learning_rate, decay_rate, max_change, past_length, debug):

@@ -1,0 +1,111 @@
+window:
+  size: [100, 50, 1000, 800]  # [start_x, start_y, width, height]
+  title: Show Controller response to a step impulse
+  status_bar: True
+  test_file_name: tests/ControlUnit.test
+  test_name:      test_step_response
+
+  layout:
+    - item:
+        name:    widgets_and_figure
+        type:    grid
+        subtype: horizontal
+        layout:
+          - item:
+              name:    widgets
+              type:    grid
+              subtype: vertical
+              width:   200
+              align:   top
+              widgets:
+                  - widget:
+                      name:  test
+                      title: Test
+                      type:  Slider
+                      parms: [0, 10, 1]
+                      value: 0
+                      tooltip: Test number
+                  - widget:
+                      name:    reference
+                      title:   Reference
+                      type:    Slider
+                      parms:   [0, 10, 1]      # [min_value, max_value, scale]
+                      value:   5
+                      tooltip: Reference value that perception must match
+                  - widget:
+                      name:    disturbance
+                      title:   Disturbance
+                      type:    Slider
+                      parms:   [-10, 10, 1]      # [min_value, max_value, scale]
+                      value:   0
+                      tooltip: Disturbance the plant faces (and it's unknown for the controller)
+                  - widget:
+                      name:  dt
+                      title: Control Interval Time
+                      type:  EditNumberSpin
+                      parms: {step: 0.05}
+                      value: 0.1
+                      tooltip: Time at which the controller sends a new output
+                  - widget:
+                      name:    cycles
+                      title:   Cycles
+                      type:    Slider
+                      parms:   [10, 1000, 1]      # [min_value, max_value, scale]
+                      value:   100
+                      tooltip: Max number of cycles to run the simulation
+                  - widget:
+                      name:    type
+                      title:   Controller
+                      type:    Label
+                      value:   Unknown
+                      tooltip: Controller type
+                  - widget:
+                      name:    p1
+                      title:   P1
+                      type:    EditNumberSpin
+                      parms:   {step: 0.1}
+                      value:   1.0
+                  - widget:
+                      name:    p2
+                      title:   P2
+                      type:    EditNumberSpin
+                      parms:   {step: 0.1}
+                      value:   1.0
+                  - widget:
+                      name:    p3
+                      title:   P3
+                      type:    EditNumberSpin
+                      parms:   {step: 0.1}
+                      value:   1.0
+                  - widget:
+                      name:    debug
+                      title:   Debug
+                      type:    Check
+                      value:   False
+                      tooltip: Show debug information
+                  - widget:
+                      name:    autotune
+                      title:   Auto Tune
+                      type:    Button
+                      action:  auto_tune
+                      tooltip: Auto tune controller parameters to best response to this reference/disturbance values
+
+          - item:
+              name: graphs
+              type: grid
+              subtype: vertical
+              layout:
+                - item:
+                    name:    perception
+                    type:    figure
+                    subtype: graph
+                    title:   Perception
+                    axes_limits: [0, 10, -1, 8]   # [min_x, max_x, min_y, max_y]
+                    x_axis: { name: 'time (s)' }
+                - item:
+                    name:    output
+                    type:    figure
+                    subtype: graph
+                    title:   Output
+                    x_axis: { name: 'time (s)' }
+

@@ -108,7 +108,7 @@ class AutoTunePoleAngleControl(at.AutoTuneFunction):
         self.control     = CartPoleGymControl(self.control_def, initial_parameters=state,
                                               reference_name='ref_pole_angle', reference_value=pole_angle_reference,
                                               overshoot_gain=1.0)
-        super(AutoTunePoleAngleControl, self).__init__(threshold=0.01, change=2.0, bad_inc=2.0, mid_inc=1.05)
+        super(AutoTunePoleAngleControl, self).__init__(changes_threshold=0.01, change=2.0, bad_inc=2.0, mid_inc=1.05)
 
     def get_parameters(self):
         return self.control.get_autotune_parameters()
@@ -138,7 +138,7 @@ class AutoTuneCartPositionControl(at.AutoTuneFunction):
         self.control_def = control_def_file_name
         self.control     = CartPoleGymControl(self.control_def, initial_parameters=None,
                                               reference_name='ref_final_pos', reference_value=self.ref)
-        super(AutoTuneCartPositionControl, self).__init__(threshold=0.01, change=10.0, bad_inc=2.0, mid_inc=1.05)
+        super(AutoTuneCartPositionControl, self).__init__(changes_threshold=0.01, change=10.0, bad_inc=2.0, mid_inc=1.05)
 
     def run_function_with_parameters(self, parameters):
         self.total_i += 1

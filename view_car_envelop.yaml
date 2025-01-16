@@ -1,0 +1,60 @@
+window:
+  size: [100, 50, 1000, 800]  # [start_x, start_y, width, height]
+  title: Car position control
+  status_bar: True
+
+  layout:
+    - item:
+        name:    widgets_and_figure
+        type:    grid
+        subtype: horizontal
+        layout:
+          - item:
+              name:    widgets
+              type:    grid
+              subtype: vertical
+              width:   200
+              align:   top
+              widgets:
+                  - widget:
+                      name:    max_v
+                      title:   Max longitudinal speed (m/s)
+                      type:    Slider
+                      parms:   [0, 10, 1]      # [min_value, max_value, scale]
+                      value:   3
+                      tooltip: Max longitudinal speed
+                  - widget:
+                      name:    max_w
+                      title:   Max rotational speed (degrees/s)
+                      type:    Slider
+                      parms:   [0, 120, 1]      # [min_value, max_value, scale]
+                      value:   45
+                      tooltip: Max rotational speed
+                  - widget:
+                      name:    max_lateral_acc
+                      title:   Max lateral acceleration
+                      type:    Slider
+                      parms:   [0, 10, 1]      # [min_value, max_value, scale]
+                      value:   2
+                      tooltip: Max lateral acceleration the vehicle can achieved without being unstable
+
+          - item:
+              name: graphs
+              type: grid
+              subtype: vertical
+              layout:
+                - item:
+                    name:    speed_envelop
+                    type:    figure
+                    subtype: graph
+                    title:   Speed envelop
+                    x_axis: { name: 'lateral speed (degrees/s)' }
+                    y_axis: { name: 'longitudinal speed (dm/s)' }
+
+                - item:
+                    name:    acc_envelop
+                    type:    figure
+                    subtype: graph
+                    title:   Acceleration envelop
+                    x_axis: { name: 'lateral acc (degrees/s.s)' }
+                    y_axis: { name: 'longitudinal acc (dm/s.s)' }
